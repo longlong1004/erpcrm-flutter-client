@@ -443,7 +443,8 @@ class PublishNotifier extends _$PublishNotifier {
     state = state.copyWith(isPublishing: true, error: null, publishProgress: '准备模拟发布...');
     try {
       // final syncService = SystemFactorySyncService();
-      final success = await syncService.simulatePublish(publishType);
+      // final success = await syncService.simulatePublish(publishType);
+      final success = true; // TODO: 实现模拟发布
       state = state.copyWith(
         isPublishing: false, 
         isPublished: success,
