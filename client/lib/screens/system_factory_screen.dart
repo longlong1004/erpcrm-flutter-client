@@ -1309,7 +1309,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                   defaultValue: defaultValue,
                   visible: isVisible,
                   displayOrder: displayOrder,
-                  updatedAt: now,
+                  updatedAt: DateTime.fromMillisecondsSinceEpoch(now),
                 );
                 
                 await ref.read(uiConfigNotifierProvider.notifier).saveConfig(updatedConfig);
@@ -1724,7 +1724,6 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                 final newField = SysUiConfig(
                   id: now.toString(), // 使用时间戳字符串作为ID
                   moduleCode: moduleCode,
-                  menuCode: moduleName,
                   fieldCode: fieldCode,
                   fieldName: fieldName,
                   fieldType: fieldType,
@@ -1741,7 +1740,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                 );
                 
                 try {
-                  await ref.read(systemFactoryDaoProvider).saveOrUpdateUiConfig(newField);
+                  await SystemFactoryDao.saveOrUpdateUiConfig(newField);
                   await ref.read(uiConfigNotifierProvider.notifier).loadConfigsByModule(moduleCode);
                   
                   Navigator.pop(context);
@@ -2462,7 +2461,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
                   createdBy: 'admin',
                   createdAt: DateTime.fromMillisecondsSinceEpoch(now),
                   updatedBy: 'admin',
-                  updatedAt: now,
+                  updatedAt: DateTime.fromMillisecondsSinceEpoch(now),
                 );
                 
                 await ref.read(menuConfigNotifierProvider.notifier).saveConfig(newTab);

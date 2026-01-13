@@ -185,7 +185,7 @@ class UiConfigNotifier extends _$UiConfigNotifier {
   Future<void> deleteConfig(int id) async {
     state = state.copyWith(isDeleting: true, error: null, operationMessage: '正在删除...');
     try {
-      await SystemFactoryDao.deleteUiConfig(id);
+      await SystemFactoryDao.deleteUiConfig(id.toString());
       // 重新加载配置
       if (state.selectedModule != null) {
         await loadConfigsByModule(state.selectedModule!);
@@ -307,7 +307,7 @@ class MenuConfigNotifier extends _$MenuConfigNotifier {
   Future<void> deleteConfig(int id) async {
     state = state.copyWith(isDeleting: true, error: null, operationMessage: '正在删除...');
     try {
-      await SystemFactoryDao.deleteMenuConfig(id);
+      await SystemFactoryDao.deleteMenuConfig(id.toString());
       // 重新加载配置
       await loadMenuConfigs();
       state = state.copyWith(isDeleting: false, operationMessage: '删除成功');
