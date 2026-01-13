@@ -370,7 +370,7 @@ class SyncNotifier extends _$SyncNotifier {
   Future<void> syncLocalDrafts() async {
     state = state.copyWith(isSyncing: true, error: null, syncProgress: '准备同步...');
     try {
-      final syncService = SystemFactorySyncService();
+      // final syncService = SystemFactorySyncService();
       final success = await syncService.syncLocalDrafts();
       if (success) {
         final now = DateTime.now().toString();
@@ -441,7 +441,7 @@ class PublishNotifier extends _$PublishNotifier {
   Future<bool> simulatePublish(String publishType) async {
     state = state.copyWith(isPublishing: true, error: null, publishProgress: '准备模拟发布...');
     try {
-      final syncService = SystemFactorySyncService();
+      // final syncService = SystemFactorySyncService();
       final success = await syncService.simulatePublish(publishType);
       state = state.copyWith(
         isPublishing: false, 
@@ -463,7 +463,7 @@ class PublishNotifier extends _$PublishNotifier {
   Future<bool> officialPublish(String publishType) async {
     state = state.copyWith(isPublishing: true, error: null, publishProgress: '准备正式发布...');
     try {
-      final syncService = SystemFactorySyncService();
+      // final syncService = SystemFactorySyncService();
       final success = await syncService.officialPublish(publishType);
       state = state.copyWith(
         isPublishing: false, 

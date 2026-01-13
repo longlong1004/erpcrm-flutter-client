@@ -1263,7 +1263,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                             ),
                             keyboardType: TextInputType.number,
                             onChanged: (value) {
-                              displayOrder = int.tryParse(value) ?? config.displayOrder;
+                              displayOrder = int.tryParse(value) ?? (config.displayOrder ?? 0);
                             },
                           ),
                         ],
@@ -1401,7 +1401,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(confirmL10n.confirmDeleteField(selectedConfig!.fieldName)),
+                            Text(confirmL10n.confirmDeleteField(selectedConfig!.fieldName ?? '')),
                             const SizedBox(height: 10),
                             Text(confirmL10n.deleteOperations),
                             const SizedBox(height: 5),
@@ -1423,7 +1423,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                             onPressed: () async {
                               try {
                                 // 执行删除操作，包括级联删除
-                                await ref.read(uiConfigNotifierProvider.notifier).deleteConfig(selectedConfig!.id!);
+                                await ref.read(uiConfigNotifierProvider.notifier).deleteConfig(int.parse(selectedConfig!.id!));
                                 Navigator.pop(context);
                                 Navigator.pop(context);
                                 context.showSuccessMessage(
@@ -1736,7 +1736,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                   createdBy: 'admin',
                   createdAt: DateTime.fromMillisecondsSinceEpoch(now),
                   updatedBy: 'admin',
-                  updatedAt: now,
+                  updatedAt: DateTime.fromMillisecondsSinceEpoch(now),
                 );
                 
                 try {
@@ -1930,7 +1930,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                 cells: [
                   DataCell(
                     Text(
-                      config.fieldCode,
+                      config.fieldCode ?? '',
                       style: const TextStyle(
                         fontWeight: FontWeight.w500,
                         fontSize: kFontSizeM,
@@ -2045,7 +2045,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                           iconSize: 20,
                           onPressed: () {
                             // 实现编辑逻辑
-                            _showEditFieldDialog(context, ref, config.moduleCode, config);
+                            _showEditFieldDialog(context, ref, config.moduleCode ?? '', config);
                           },
                         ),
                         const SizedBox(width: kSpacingXXS),
@@ -2084,7 +2084,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l10n.confirmDeleteField(config.fieldName)),
+              Text(l10n.confirmDeleteField(config.fieldName ?? '')),
               const SizedBox(height: 10),
               Text(l10n.deleteOperations),
               const SizedBox(height: 5),
@@ -2106,7 +2106,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
               onPressed: () async {
                 try {
                   // 执行删除操作
-                  await ref.read(uiConfigNotifierProvider.notifier).deleteConfig(config.id!);
+                  await ref.read(uiConfigNotifierProvider.notifier).deleteConfig(int.parse(config.id!));
                   Navigator.pop(context);
                   context.showSuccessMessage(
                     title: l10n.success,
@@ -2174,7 +2174,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
                   onPressed: () {
                     // 实现删除菜单逻辑
                     if (menuConfigState.selectedMenu != null) {
-                      ref.read(menuConfigNotifierProvider.notifier).deleteConfig(menuConfigState.selectedMenu!.id!);
+                      ref.read(menuConfigNotifierProvider.notifier).deleteConfig(int.parse(menuConfigState.selectedMenu!.id!));
                     }
                   },
                   child: Text(l10n.deleteMenu),
@@ -2214,7 +2214,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
     final rootMenus = <SysMenuConfig>[];
     
     for (var menu in configs) {
-      menuMap[menu.id!] = menu;
+      menuMap[int.parse(menu.id!)] = menu;
     }
     
     for (var menu in configs) {
@@ -2228,7 +2228,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
         shrinkWrap: true,
         itemCount: rootMenus.length,
         itemBuilder: (context, index) {
-          rootMenus.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          rootMenus.sort((a, b) => (a.displayOrder ?? 0).compareTo(b.displayOrder ?? 0));
           return _buildMenuItem(context, rootMenus[index], menuMap, ref, 0);
         },
       ),
@@ -2257,7 +2257,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
                 const SizedBox(width: 10),
                 
                 // 菜单名称
-                Expanded(child: Text(menu.menuName)),
+                Expanded(child: Text(menu.menuName ?? '')),
                 
                 // 菜单操作区
               ],
@@ -2273,7 +2273,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
               itemCount: menuMap.values.where((m) => m.parentId == menu.id).length,
               itemBuilder: (context, index) {
                 final subMenus = menuMap.values.where((m) => m.parentId == menu.id).toList();
-                subMenus.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+                subMenus.sort((a, b) => (a.displayOrder ?? 0).compareTo(b.displayOrder ?? 0));
                 return _buildMenuItem(context, subMenus[index], menuMap, ref, level + 1);
               },
             ),

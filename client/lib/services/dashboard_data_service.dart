@@ -797,7 +797,7 @@ class DashboardDataService {
   /// 获取商机指标数据
   Future<Map<String, dynamic>> getOpportunityMetrics(DateTime start, DateTime end) async {
     try {
-      final opportunitiesBoxData = await Hive.openBox<SalesOpportunity>(_opportunitiesBoxName);
+      final opportunitiesBoxData = await Hive.openBox<SalesOpportunity>(opportunitiesBox);
 
       // 新增商机数
       final newOpportunities = opportunitiesBoxData.values.where((opp) {
@@ -880,7 +880,7 @@ class DashboardDataService {
   /// 获取跟进记录指标数据
   Future<Map<String, dynamic>> getContactMetrics(DateTime start, DateTime end) async {
     try {
-      final contactRecordsBoxData = await Hive.openBox<ContactRecord>(_contactRecordsBoxName);
+      final contactRecordsBoxData = await Hive.openBox<ContactRecord>(contactRecordsBox);
 
       // 新增跟进数
       final newContacts = contactRecordsBoxData.values.where((contact) {
