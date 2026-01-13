@@ -36,7 +36,7 @@ dependencies:
   # device_info_plus: ^10.0.0
   # package_info_plus: ^8.0.2
   process_run: ^0.13.0  # Windows系统调用
-  win32: 5.4.0        # Windows API调用（降级以修复UnmodifiableUint8ListView错误）
+  win32: 5.1.1        # Windows API调用（降级到稳定版本）
   file_icon: ^1.0.0    # 文件图标获取
   fl_chart: ^0.69.0    # 图表库（用于订单趋势、客户增长等图表）
   image_picker: ^1.0.7  # 图片选择器（用于商品图片上传）
