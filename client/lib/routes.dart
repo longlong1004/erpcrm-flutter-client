@@ -117,7 +117,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/dashboard',
-            builder: (context, state) => const DashboardScreen(),
+            builder: (context, state) => const DashboardScreenComplete(),
           ),
           GoRoute(
             path: '/approval',

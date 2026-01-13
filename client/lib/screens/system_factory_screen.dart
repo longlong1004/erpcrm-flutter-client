@@ -1926,7 +1926,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
               inside: BorderSide(color: kBorderColor),
               outside: BorderSide(color: kBorderColor),
             ),
-            rows: configs.map((config) {
+            rows: configs.map<DataRow>((config) {
               return DataRow(
                 cells: [
                   DataCell(

@@ -9,7 +9,7 @@ import 'package:erpcrm_client/utils/http_client.dart';
 import 'package:erpcrm_client/services/network_service.dart';
 import 'package:erpcrm_client/services/local_storage_service.dart';
 import 'package:erpcrm_client/services/agent_service.dart';
-// import 'package:erpcrm_client/data/database/system_factory_database.dart'; // 文件不存在，已注释
+import 'package:erpcrm_client/data/database/system_factory_database.dart';
 import 'package:erpcrm_client/models/settings/system_parameter.dart';
 import 'package:erpcrm_client/models/settings/operation_log.dart';
 import 'package:erpcrm_client/models/settings/data_dictionary.dart';

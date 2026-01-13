@@ -701,7 +701,7 @@ class _DashboardScreenCompleteState extends ConsumerState<DashboardScreenComplet
               ),
             ],
             child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _dataService.getFocusList(),
+              future: _dataService.getBusinessFocusList(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
