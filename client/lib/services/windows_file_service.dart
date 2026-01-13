@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as path;
-import 'package:win32/win32.dart';
+// import 'package:win32/win32.dart'; // 已移除：未实际使用
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 
