@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // 已移除
 import '../models/shortcut_key.dart';
 import './logger_service.dart';
 
 class StorageManager {
   static late Box _appBox;
   static late SharedPreferences _prefs;
-  static late FlutterSecureStorage _secureStorage;
+  // static late FlutterSecureStorage _secureStorage; // 已移除
 
   // 存储键常量
   static const String tokenKey = 'auth_token';
@@ -28,7 +28,7 @@ class StorageManager {
     _prefs = await SharedPreferences.getInstance();
 
     // 初始化FlutterSecureStorage
-    _secureStorage = const FlutterSecureStorage();
+    // _secureStorage = const FlutterSecureStorage(); // 已移除
   }
 
   /// 保存认证令牌
@@ -127,7 +127,7 @@ class StorageManager {
   static Future<void> clearAllData() async {
     await _appBox.clear();
     await _prefs.clear();
-    await _secureStorage.deleteAll();
+    // await _secureStorage.deleteAll(); // 已移除
   }
 
   /// 保存快捷键配置
