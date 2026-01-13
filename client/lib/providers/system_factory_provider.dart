@@ -1,7 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 // import '../data/dao/system_factory_dao.dart'; // 文件不存在
 // import '../data/sync/system_factory_sync_service.dart'; // 文件不存在
-// import '../data/database/system_factory_database.dart'; // 文件不存在
+import '../data/database/system_factory_database.dart';
 import 'navigation_provider.dart';
 
 part 'system_factory_provider.g.dart';

@@ -152,6 +152,9 @@ class SysMenuConfig extends HiveObject {
   @HiveField(7)
   bool? visible;
 
+  @HiveField(10)
+  String? routePath;
+
   @HiveField(8)
   DateTime? createdAt;
 
@@ -167,6 +170,7 @@ class SysMenuConfig extends HiveObject {
     this.route,
     this.displayOrder,
     this.visible,
+    this.routePath,
     this.createdAt,
     this.updatedAt,
   });
@@ -180,6 +184,7 @@ class SysMenuConfig extends HiveObject {
     String? route,
     int? displayOrder,
     bool? visible,
+    String? routePath,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -192,6 +197,7 @@ class SysMenuConfig extends HiveObject {
       route: route ?? this.route,
       displayOrder: displayOrder ?? this.displayOrder,
       visible: visible ?? this.visible,
+      routePath: routePath ?? this.routePath,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -207,6 +213,7 @@ class SysMenuConfig extends HiveObject {
       'route': route,
       'displayOrder': displayOrder,
       'visible': visible,
+      'routePath': routePath,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -222,6 +229,7 @@ class SysMenuConfig extends HiveObject {
       route: json['route'] as String?,
       displayOrder: json['displayOrder'] as int?,
       visible: json['visible'] as bool?,
+      routePath: json['routePath'] as String?,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,

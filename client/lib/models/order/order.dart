@@ -39,6 +39,9 @@ class Order extends HiveObject {
   @HiveField(15)
   final String? orderType;
 
+  // orderDate getter - 使用 createdAt 作为订单日期
+  DateTime get orderDate => createdAt;
+
   Order({
     required this.id,
     required this.orderNumber,

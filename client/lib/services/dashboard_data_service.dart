@@ -739,7 +739,7 @@ class DashboardDataService {
   Future<List<Map<String, dynamic>>> getBusinessFocusList() async {
     try {
       final orderBox = await Hive.openBox<Order>(ordersBox);
-      final inventoryBox = await Hive.openBox<Inventory>(inventoryBox);
+      final inventoryBoxData = await Hive.openBox<Inventory>(inventoryBox);
 
       final focusList = <Map<String, dynamic>>[];
 
@@ -759,7 +759,7 @@ class DashboardDataService {
       }
 
       // 2. 低库存商品
-      final lowStockProducts = inventoryBox.values.where((inventory) {
+      final lowStockProducts = inventoryBoxData.values.where((inventory) {
         return inventory.quantity < inventory.safetyStock;
       }).length;
 
@@ -773,7 +773,7 @@ class DashboardDataService {
       }
 
       // 3. 缺货商品
-      final outOfStockProducts = inventoryBox.values.where((inventory) {
+      final outOfStockProducts = inventoryBoxData.values.where((inventory) {
         return inventory.quantity == 0;
       }).length;
 
@@ -797,10 +797,10 @@ class DashboardDataService {
   /// 获取商机指标数据
   Future<Map<String, dynamic>> getOpportunityMetrics(DateTime start, DateTime end) async {
     try {
-      final box = await Hive.openBox<SalesOpportunity>(opportunitiesBox);
+      final opportunitiesBoxData = await Hive.openBox<SalesOpportunity>(opportunitiesBox);
 
       // 新增商机数
-      final newOpportunities = box.values.where((opp) {
+      final newOpportunities = opportunitiesBoxData.values.where((opp) {
         return opp.createTime.isAfter(start) &&
                opp.createTime.isBefore(end) &&
                !opp.deleted;
@@ -815,7 +815,7 @@ class DashboardDataService {
       );
 
       // 赢单数（假设 stage 为 'won' 或 'closed_won'）
-      final wonCount = box.values.where((opp) {
+      final wonCount = opportunitiesBoxData.values.where((opp) {
         return opp.createTime.isAfter(start) &&
                opp.createTime.isBefore(end) &&
                !opp.deleted &&
@@ -825,7 +825,7 @@ class DashboardDataService {
       }).length;
 
       // 赢单金额
-      final wonAmount = box.values.where((opp) {
+      final wonAmount = opportunitiesBoxData.values.where((opp) {
         return opp.createTime.isAfter(start) &&
                opp.createTime.isBefore(end) &&
                !opp.deleted &&
@@ -839,7 +839,7 @@ class DashboardDataService {
       final previousStart = start.subtract(duration);
       final previousEnd = start;
 
-      final previousNewCount = box.values.where((opp) {
+      final previousNewCount = opportunitiesBoxData.values.where((opp) {
         return opp.createTime.isAfter(previousStart) &&
                opp.createTime.isBefore(previousEnd) &&
                !opp.deleted;
@@ -851,7 +851,7 @@ class DashboardDataService {
 
       // 按阶段统计
       final stageCounts = <String, int>{};
-      for (var opp in box.values.where((o) => !o.deleted)) {
+      for (var opp in opportunitiesBoxData.values.where((o) => !o.deleted)) {
         final stage = opp.stage;
         stageCounts[stage] = (stageCounts[stage] ?? 0) + 1;
       }
@@ -880,10 +880,10 @@ class DashboardDataService {
   /// 获取跟进记录指标数据
   Future<Map<String, dynamic>> getContactMetrics(DateTime start, DateTime end) async {
     try {
-      final box = await Hive.openBox<ContactRecord>(contactRecordsBox);
+      final contactRecordsBoxData = await Hive.openBox<ContactRecord>(contactRecordsBox);
 
       // 新增跟进数
-      final newContacts = box.values.where((contact) {
+      final newContacts = contactRecordsBoxData.values.where((contact) {
         try {
           final contactDate = DateTime.parse(contact.contactDate);
           return contactDate.isAfter(start) &&
@@ -900,7 +900,7 @@ class DashboardDataService {
       final previousStart = start.subtract(duration);
       final previousEnd = start;
 
-      final previousNewCount = box.values.where((contact) {
+      final previousNewCount = contactRecordsBoxData.values.where((contact) {
         try {
           final contactDate = DateTime.parse(contact.contactDate);
           return contactDate.isAfter(previousStart) &&
