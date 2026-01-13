@@ -144,8 +144,7 @@ class UiConfigNotifier extends _$UiConfigNotifier {
     }
     
     try {
-      final dao = ref.watch(systemFactoryDaoProvider);
-      final configs = await dao.getUiConfigsByModule(moduleCode);
+      final configs = await SystemFactoryDao.getUiConfigsByModule(moduleCode);
       state = state.copyWith(configs: configs, isLoading: false);
     } catch (e) {
       state = state.copyWith(error: '加载UI配置失败: $e', isLoading: false);
@@ -156,8 +155,7 @@ class UiConfigNotifier extends _$UiConfigNotifier {
   Future<void> saveConfig(SysUiConfig config) async {
     state = state.copyWith(isSaving: true, error: null, operationMessage: '正在保存...');
     try {
-      final dao = ref.watch(systemFactoryDaoProvider);
-      await dao.saveOrUpdateUiConfig(config);
+      await SystemFactoryDao.saveOrUpdateUiConfig(config);
       // 重新加载配置
       if (state.selectedModule != null) {
         await loadConfigsByModule(state.selectedModule!);
@@ -172,8 +170,7 @@ class UiConfigNotifier extends _$UiConfigNotifier {
   Future<void> updateConfigs(List<SysUiConfig> configs) async {
     state = state.copyWith(isSaving: true, error: null, operationMessage: '正在批量更新...');
     try {
-      final dao = ref.watch(systemFactoryDaoProvider);
-      await dao.batchSaveUiConfigs(configs);
+      await SystemFactoryDao.batchSaveUiConfigs(configs);
       // 重新加载配置
       if (state.selectedModule != null) {
         await loadConfigsByModule(state.selectedModule!);
@@ -188,8 +185,7 @@ class UiConfigNotifier extends _$UiConfigNotifier {
   Future<void> deleteConfig(int id) async {
     state = state.copyWith(isDeleting: true, error: null, operationMessage: '正在删除...');
     try {
-      final dao = ref.watch(systemFactoryDaoProvider);
-      await dao.deleteUiConfig(id);
+      await SystemFactoryDao.deleteUiConfig(id);
       // 重新加载配置
       if (state.selectedModule != null) {
         await loadConfigsByModule(state.selectedModule!);
@@ -222,8 +218,7 @@ class UiConfigNotifier extends _$UiConfigNotifier {
     );
     
     try {
-      final dao = ref.watch(systemFactoryDaoProvider);
-      final configs = await dao.getUiConfigsByModule(targetModuleCode);
+      final configs = await SystemFactoryDao.getUiConfigsByModule(targetModuleCode);
       state = state.copyWith(configs: configs, isLoading: false);
     } catch (e) {
       state = state.copyWith(error: '加载UI配置失败: $e', isLoading: false);
@@ -288,8 +283,7 @@ class MenuConfigNotifier extends _$MenuConfigNotifier {
   Future<void> loadMenuConfigs() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final dao = ref.watch(systemFactoryDaoProvider);
-      final configs = await dao.getAllMenuConfigs();
+      final configs = await SystemFactoryDao.getAllMenuConfigs();
       state = state.copyWith(configs: configs, isLoading: false);
     } catch (e) {
       state = state.copyWith(error: '加载菜单配置失败: $e', isLoading: false);
@@ -300,8 +294,7 @@ class MenuConfigNotifier extends _$MenuConfigNotifier {
   Future<void> saveConfig(SysMenuConfig config) async {
     state = state.copyWith(isSaving: true, error: null, operationMessage: '正在保存...');
     try {
-      final dao = ref.watch(systemFactoryDaoProvider);
-      await dao.saveOrUpdateMenuConfig(config);
+      await SystemFactoryDao.saveOrUpdateMenuConfig(config);
       // 重新加载配置
       await loadMenuConfigs();
       state = state.copyWith(isSaving: false, operationMessage: '保存成功');
@@ -314,8 +307,7 @@ class MenuConfigNotifier extends _$MenuConfigNotifier {
   Future<void> deleteConfig(int id) async {
     state = state.copyWith(isDeleting: true, error: null, operationMessage: '正在删除...');
     try {
-      final dao = ref.watch(systemFactoryDaoProvider);
-      await dao.deleteMenuConfig(id);
+      await SystemFactoryDao.deleteMenuConfig(id);
       // 重新加载配置
       await loadMenuConfigs();
       state = state.copyWith(isDeleting: false, operationMessage: '删除成功');

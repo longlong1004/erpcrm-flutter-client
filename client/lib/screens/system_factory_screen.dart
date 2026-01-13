@@ -1722,7 +1722,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                 // 保存新的字段
                 final now = DateTime.now().millisecondsSinceEpoch;
                 final newField = SysUiConfig(
-                  id: now, // 使用时间戳作为临时ID
+                  id: now.toString(), // 使用时间戳字符串作为ID
                   moduleCode: moduleCode,
                   menuCode: moduleName,
                   fieldCode: fieldCode,
@@ -2349,7 +2349,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
   void _addRootMenu(WidgetRef ref) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final newMenu = SysMenuConfig(
-      id: now, // 使用时间戳作为临时ID
+      id: now.toString(), // 使用时间戳字符串作为ID
       parentId: null,
       menuName: '新根菜单',
       icon: 'dashboard',
@@ -2359,7 +2359,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
       createdBy: 'admin',
       createdAt: DateTime.fromMillisecondsSinceEpoch(now),
       updatedBy: 'admin',
-      updatedAt: now,
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(now),
     );
     ref.read(menuConfigNotifierProvider.notifier).saveConfig(newMenu);
   }
@@ -2368,7 +2368,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
   void _addSubMenu(WidgetRef ref, SysMenuConfig parentMenu) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final newMenu = SysMenuConfig(
-      id: now, // 使用时间戳作为临时ID
+      id: now.toString(), // 使用时间戳字符串作为ID
       parentId: parentMenu.id,
       menuName: '新子菜单',
       icon: 'dashboard',
@@ -2378,7 +2378,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
       createdBy: 'admin',
       createdAt: DateTime.fromMillisecondsSinceEpoch(now),
       updatedBy: 'admin',
-      updatedAt: now,
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(now),
     );
     ref.read(menuConfigNotifierProvider.notifier).saveConfig(newMenu);
   }
@@ -2452,7 +2452,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
                 // 保存新的标签页
                 final now = DateTime.now().millisecondsSinceEpoch;
                 final newTab = SysMenuConfig(
-                  id: now, // 使用时间戳作为临时ID
+                  id: now.toString(), // 使用时间戳字符串作为ID
                   parentId: menuConfigState.selectedMenu != null ? menuConfigState.selectedMenu!.id : null,
                   menuName: tabName,
                   icon: 'assignment',
