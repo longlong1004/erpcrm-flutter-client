@@ -37,7 +37,7 @@ dependencies:
   # package_info_plus: ^8.0.2
   process_run: ^0.13.0  # Windows系统调用
   # win32: 5.1.1        # 已移除：代码中未实际使用，且存在UnmodifiableUint8ListView错误
-  file_icon: ^1.0.0    # 文件图标获取
+  # file_icon: ^1.0.0    # 已移除：代码中未实际使用
   fl_chart: ^0.69.0    # 图表库（用于订单趋势、客户增长等图表）
   image_picker: ^1.0.7  # 图片选择器（用于商品图片上传）
   freezed_annotation: ^2.4.1  # Freezed注解（用于数据模型）
@@ -62,6 +62,10 @@ dev_dependencies:
   mockito: ^5.4.3
   mocktail: ^1.0.0
   freezed: ^2.4.5  # Freezed代码生成器
+
+# 强制使用特定版本以解决依赖冲突
+dependency_overrides:
+  win32: 4.1.4  # 强制使用旧版本以避免UnmodifiableUint8ListView错误
 
 flutter:
   uses-material-design: true
