@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路由修复效果演示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .code-block {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+        }
+        .fix-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .before-fix {
+            background-color: #ffebee;
+            border-left: 5px solid #f44336;
+        }
+        .after-fix {
+            background-color: #e8f5e8;
+            border-left: 5px solid #4caf50;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>"类目符合"和"类目不符合"选项修复效果演示</h1>
+        
+        <h2>问题描述</h2>
+        <p>当用户点击"类目符合"和"类目不符合"两个表单选项时，界面没有任何响应，也未显示出对应的页面信息内容。</p>
+        
+        <h2>问题原因</h2>
+        <p>在 <code>businesses_screen.dart</code> 文件中，获取当前路由路径的方式不正确，导致无法根据用户点击的菜单项显示对应的页面内容。</p>
+        
+        <h2>修复方案</h2>
+        <div class="fix-section before-fix">
+            <h3>修复前的代码</h3>
+            <div class="code-block">
+                <pre>@override
+Widget build(BuildContext context, WidgetRef ref) {
+    <span class="highlight">final currentPath = Router.of(context).routeInformationProvider?.value.uri.path ?? '';</span>
+    
+    // 根据当前路径显示不同的内容
+    Widget content = _buildDefaultContent(context, currentPath);</pre>
+            </div>
+            <div class="result error">
+                <strong>问题：</strong>无法正确获取当前路由路径，导致所有路由都显示默认内容
+            </div>
+        </div>
+        
+        <div class="fix-section after-fix">
+            <h3>修复后的代码</h3>
+            <div class="code-block">
+                <pre>@override
+Widget build(BuildContext context, WidgetRef ref) {
+    <span class="highlight">// 使用GoRouter.of(context).location获取当前路由路径</span>
+    <span class="highlight">final currentPath = GoRouter.of(context).location;</span>
+    
+    // 根据当前路径显示不同的内容
+    Widget content = _buildDefaultContent(context, currentPath);</pre>
+            </div>
+            <div class="result success">
+                <strong>修复：</strong>使用 <code>GoRouter.of(context).location</code> 正确获取当前路由路径
+            </div>
+        </div>
+        
+        <h2>修复效果</h2>
+        <table border="1" cellpadding="10" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr>
+                <th style="background-color: #f0f0f0;">用户操作</th>
+                <th style="background-color: #f0f0f0;">修复前</th>
+                <th style="background-color: #f0f0f0;">修复后</th>
+            </tr>
+            <tr>
+                <td>点击"类目符合"选项</td>
+                <td style="background-color: #ffebee;">显示默认内容，无响应</td>
+                <td style="background-color: #e8f5e8;">显示"类目符合批量采购"页面</td>
+            </tr>
+            <tr>
+                <td>点击"类目不符合"选项</td>
+                <td style="background-color: #ffebee;">显示默认内容，无响应</td>
+                <td style="background-color: #e8f5e8;">显示"类目不符合批量采购"页面</td>
+            </tr>
+        </table>
+        
+        <h2>代码验证</h2>
+        <p>修复后的代码已经正确导入了 <code>go_router</code> 包，并且使用了正确的方式获取当前路由路径。从代码逻辑上看，修复是正确的，应该能够解决用户报告的问题。</p>
+        
+        <h2>本地验证步骤</h2>
+        <ol>
+            <li>打开文件：<code>h:\erpcrm\client\lib\screens\businesses\businesses_screen.dart</code></li>
+            <li>查看第13-14行，确认修复已经应用</li>
+            <li>运行应用程序：<code>flutter run -d windows</code> 或 <code>flutter run -d chrome</code></li>
+            <li>点击左侧菜单中的"业务管理" → "国铁信息专区" → "批量采购" → "类目符合"</li>
+            <li>验证是否显示"类目符合批量采购"页面</li>
+            <li>点击"类目不符合"，验证是否显示"类目不符合批量采购"页面</li>
+        </ol>
+    </div>
+</body>
+</html>

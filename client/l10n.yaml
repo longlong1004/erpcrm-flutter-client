@@ -1,0 +1,7 @@
+arb-dir: lib/l10n
+output-dir: lib/generated/l10n
+template-arb-file: intl_en_US.arb
+output-localization-file: app_localizations.dart
+preferred-supported-locales: [en_US, zh_CN]
+suppress-warnings: true
+untranslated-messages-file: untranslated_messages.txt

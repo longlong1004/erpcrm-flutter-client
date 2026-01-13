@@ -1,0 +1,34 @@
+version: '3.8'
+
+networks:
+  erpcrm_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# 本地开发环境配置 - 使用已安装的MySQL和Redis
+services:
+  # 后端服务 - 使用本地构建的镜像
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: erpcrm_backend
+    restart: always
+    networks:
+      - erpcrm_network
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/erpcrm_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=erpcrm_root_password
+      - SPRING_REDIS_HOST=host.docker.internal
+      - SPRING_REDIS_PORT=6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

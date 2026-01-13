@@ -1,0 +1,63 @@
+package com.erpcrm.controller;
+
+import com.erpcrm.dto.ShortcutKeyDTO;
+import com.erpcrm.service.ShortcutKeyService;
+import com.erpcrm.server.util.JwtUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/shortcut-keys")
+@CrossOrigin(origins = "*")
+public class ShortcutKeyController {
+    
+    @Autowired
+    private ShortcutKeyService shortcutKeyService;
+    
+    @GetMapping
+    public ResponseEntity<List<ShortcutKeyDTO>> getShortcutKeys(
+            @RequestHeader("Authorization") String token) {
+        Long userId = JwtUtil.getUserIdFromToken(token);
+        List<ShortcutKeyDTO> keys = shortcutKeyService.getUserShortcutKeys(userId);
+        return ResponseEntity.ok(keys);
+    }
+    
+    @PutMapping("/{id}")
+    public ResponseEntity<ShortcutKeyDTO> updateShortcutKey(
+            @PathVariable Long id,
+            @RequestBody ShortcutKeyDTO dto,
+            @RequestHeader("Authorization") String token) {
+        Long userId = JwtUtil.getUserIdFromToken(token);
+        ShortcutKeyDTO updated = shortcutKeyService.updateShortcutKey(userId, id, dto);
+        return ResponseEntity.ok(updated);
+    }
+    
+    @PostMapping("/reset")
+    public ResponseEntity<Void> resetToDefault(
+            @RequestHeader("Authorization") String token) {
+        Long userId = JwtUtil.getUserIdFromToken(token);
+        shortcutKeyService.resetToDefault(userId);
+        return ResponseEntity.ok().build();
+    }
+    
+    @PostMapping("/reset/{functionId}")
+    public ResponseEntity<Void> resetSingleShortcutToDefault(
+            @PathVariable String functionId,
+            @RequestHeader("Authorization") String token) {
+        Long userId = JwtUtil.getUserIdFromToken(token);
+        shortcutKeyService.resetSingleShortcutToDefault(userId, functionId);
+        return ResponseEntity.ok().build();
+    }
+    
+    @PostMapping("/usage/{functionId}")
+    public ResponseEntity<Void> recordUsage(
+            @PathVariable String functionId,
+            @RequestHeader("Authorization") String token) {
+        Long userId = JwtUtil.getUserIdFromToken(token);
+        shortcutKeyService.incrementUsageCount(userId, functionId);
+        return ResponseEntity.ok().build();
+    }
+}

@@ -1,0 +1,105 @@
+# 第一阶段：构建阶段
+FROM maven:3.9.4-eclipse-temurin-17 AS builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制pom.xml和源代码
+COPY ../server/pom.xml .
+COPY ../server/src ./src
+
+# 删除有编码问题的文件
+RUN rm -f src/main/java/com/erpcrm/server/model/logistics/LogisticsTrace.java
+
+# 创建新的LogisticsTrace.java文件，使用英文消息避免编码问题
+RUN cat > src/main/java/com/erpcrm/server/model/logistics/LogisticsTrace.java << 'EOF'
+package com.erpcrm.server.model.logistics;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "logistics_trace", indexes = {
+    @Index(name = "idx_logistics_no", columnList = "logistics_no")
+})
+public class LogisticsTrace {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotBlank(message = "Logistics number cannot be blank")
+    @Size(max = 50, message = "Logistics number cannot exceed 50 characters")
+    @Column(name = "logistics_no", nullable = false)
+    private String logisticsNo;
+
+    @NotBlank(message = "Trace description cannot be blank")
+    @Size(max = 500, message = "Trace description cannot exceed 500 characters")
+    @Column(name = "description", nullable = false)
+    private String description;
+
+    @NotBlank(message = "Current status cannot be blank")
+    @Size(max = 20, message = "Current status cannot exceed 20 characters")
+    @Column(name = "current_status", nullable = false)
+    private String currentStatus;
+
+    @NotBlank(message = "Operator cannot be blank")
+    @Size(max = 100, message = "Operator cannot exceed 100 characters")
+    @Column(name = "operator", nullable = false)
+    private String operator;
+
+    @Size(max = 20, message = "Operator phone cannot exceed 20 characters")
+    @Column(name = "operator_phone")
+    private String operatorPhone;
+
+    @Size(max = 200, message = "Location cannot exceed 200 characters")
+    @Column(name = "location")
+    private String location;
+
+    @Column(name = "create_time")
+    private LocalDateTime createTime;
+
+    @Column(name = "update_time")
+    private LocalDateTime updateTime;
+
+    @PrePersist
+    protected void onCreate() {
+        createTime = LocalDateTime.now();
+        updateTime = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updateTime = LocalDateTime.now();
+    }
+}
+EOF
+
+# 构建项目
+RUN mvn clean package -DskipTests
+
+# 第二阶段：运行阶段
+FROM openjdk:17-alpine
+
+WORKDIR /app
+
+# 从构建阶段复制jar文件
+COPY --from=builder /app/target/erpcrm-server-1.0.0-SNAPSHOT.jar app.jar
+
+# 暴露端口
+EXPOSE 8080
+
+# 启动应用
+ENTRYPOINT ["java", "-jar", "app.jar"]

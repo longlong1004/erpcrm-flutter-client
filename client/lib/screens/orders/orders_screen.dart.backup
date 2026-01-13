@@ -1,0 +1,4206 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:erpcrm_client/widgets/main_layout.dart';
+import 'package:erpcrm_client/providers/order_provider.dart';
+import 'package:erpcrm_client/models/order/order.dart';
+import 'package:erpcrm_client/services/excel_service.dart';
+import 'package:erpcrm_client/widgets/order_delete_dialog.dart';
+import 'package:erpcrm_client/widgets/change_salesman_dialog.dart';
+import 'package:erpcrm_client/screens/orders/order_detail_preview_screen.dart';
+import 'package:erpcrm_client/screens/orders/order_edit_screen.dart';
+import 'package:erpcrm_client/screens/orders/order_delivery_screen.dart';
+import 'package:erpcrm_client/screens/orders/select_order_screen.dart';
+import 'package:erpcrm_client/screens/orders/add_supplement_order_screen.dart';
+
+class OrdersScreen extends ConsumerWidget {
+  const OrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MainLayout(
+      title: '订单管理',
+      child: OrderManagementTabs(),
+    );
+  }
+}
+
+class OrderManagementTabs extends ConsumerWidget {
+  const OrderManagementTabs({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          // 一级标签页：国铁订单和对外业务订单
+          Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TabBar(
+              labelColor: const Color(0xFF003366),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF003366),
+              indicatorWeight: 3,
+              tabs: const [
+                Tab(text: '国铁订单'),
+                Tab(text: '对外业务订单'),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                RailwayOrdersTabs(),
+                ExternalOrdersScreen(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RailwayOrdersTabs extends ConsumerWidget {
+  const RailwayOrdersTabs({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 5,
+      child: Column(
+        children: [
+          // 二级标签页：国铁订单下的子分类
+          Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TabBar(
+              isScrollable: true,
+              labelColor: const Color(0xFF003366),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF003366),
+              indicatorWeight: 2,
+              tabs: const [
+                Tab(text: '商城订单'),
+                Tab(text: '集货商订单'),
+                Tab(text: '其它订单'),
+                Tab(text: '补发货（退换货）'),
+                Tab(text: '办理'),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                MallOrdersTabs(),
+                CollectorOrdersScreen(),
+                OtherOrdersScreen(),
+                SupplementOrdersScreen(),
+                HandleOrdersScreen(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MallOrdersTabs extends ConsumerWidget {
+  const MallOrdersTabs({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          // 三级标签页：商城订单下的子分类
+          Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TabBar(
+              isScrollable: true,
+              labelColor: const Color(0xFF003366),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF003366),
+              indicatorWeight: 2,
+              tabs: const [
+                Tab(text: '商城订单总表'),
+                Tab(text: '导入信息'),
+                Tab(text: '待发货'),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                MallOrdersTotalScreen(),
+                MallOrdersImportScreen(),
+                MallOrdersPendingDeliveryScreen(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MallOrdersTotalScreen extends ConsumerStatefulWidget {
+  const MallOrdersTotalScreen({super.key});
+
+  @override
+  ConsumerState<MallOrdersTotalScreen> createState() => _MallOrdersTotalScreenState();
+}
+
+class _MallOrdersTotalScreenState extends ConsumerState<MallOrdersTotalScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+          // 显示成功消息
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('删除成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('品牌')),
+                      const DataColumn(label: Text('单品编码')),
+                      const DataColumn(label: Text('国铁名称')),
+                      const DataColumn(label: Text('国铁型号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('国铁单价')),
+                      const DataColumn(label: Text('国铁金额')),
+                      const DataColumn(label: Text('发票申请时间')),
+                      const DataColumn(label: Text('回款时间')),
+                      const DataColumn(label: Text('付款时间')),
+                      const DataColumn(label: Text('供应商')),
+                      const DataColumn(label: Text('实发名称')),
+                      const DataColumn(label: Text('实发型号')),
+                      const DataColumn(label: Text('采购单价')),
+                      const DataColumn(label: Text('实发数量')),
+                      const DataColumn(label: Text('单位')),
+                      const DataColumn(label: Text('采购金额')),
+                      const DataColumn(label: Text('备注')),
+                      const DataColumn(label: Text('付款方式')),
+                      const DataColumn(label: Text('发票类型')),
+                      const DataColumn(label: Text('进项发票时间')),
+                      const DataColumn(label: Text('运费')),
+                      const DataColumn(label: Text('补发货类型')),
+                      const DataColumn(label: Text('补发货名称')),
+                      const DataColumn(label: Text('补发货金额')),
+                      const DataColumn(label: Text('办理费用')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      // 从订单项目中获取第一个项目的详细信息
+                      final firstItem = order.orderItems.isNotEmpty ? order.orderItems.first : null;
+                      
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        DataCell(Text(order.userId.toString())), // 使用真实的用户ID
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.createdAt.toString())),
+                        DataCell(Text(order.updatedAt.toString())),
+                        DataCell(Text('收货人')), // 模拟数据
+                        DataCell(Text('13800138000')), // 模拟数据
+                        DataCell(Text(order.shippingAddress ?? '')),
+                        DataCell(Text('北京铁路局')), // 模拟数据
+                        DataCell(Text('北京站')), // 模拟数据
+                        DataCell(Text('公司名称')), // 模拟数据
+                        DataCell(Text(firstItem?.productName ?? '')), // 从订单项目中获取品牌
+                        DataCell(Text(firstItem?.productSku ?? '')), // 从订单项目中获取单品编码
+                        DataCell(Text(firstItem?.productName ?? '')), // 从订单项目中获取国铁名称
+                        DataCell(Text(firstItem?.productSku ?? '')), // 从订单项目中获取国铁型号
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Text('供应商')), // 模拟数据
+                        DataCell(Text(firstItem?.productName ?? '')), // 从订单项目中获取实发名称
+                        DataCell(Text(firstItem?.productSku ?? '')), // 从订单项目中获取实发型号
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Text('件')), // 模拟数据
+                        DataCell(Text('')),
+                        DataCell(Text(order.notes ?? '')),
+                        DataCell(Text(order.paymentMethod ?? '')),
+                        DataCell(Text('增值税专用发票')), // 模拟数据
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Text('')),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 商城订单导入信息
+class MallOrdersImportScreen extends ConsumerStatefulWidget {
+  const MallOrdersImportScreen({super.key});
+
+  @override
+  ConsumerState<MallOrdersImportScreen> createState() => _MallOrdersImportScreenState();
+}
+
+class _MallOrdersImportScreenState extends ConsumerState<MallOrdersImportScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('品牌')),
+                      const DataColumn(label: Text('单品编码')),
+                      const DataColumn(label: Text('国铁名称')),
+                      const DataColumn(label: Text('国铁型号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('国铁单价')),
+                      const DataColumn(label: Text('国铁金额')),
+                      const DataColumn(label: Text('操作时间')),
+                      const DataColumn(label: Text('导入时间')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        DataCell(Text('admin')), // 模拟数据
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.createdAt.toString())),
+                        DataCell(Text(order.updatedAt.toString())),
+                        DataCell(Text('收货人')), // 模拟数据
+                        DataCell(Text('13800138000')), // 模拟数据
+                        DataCell(Text('收货地址')), // 模拟数据
+                        DataCell(Text('北京铁路局')), // 模拟数据
+                        DataCell(Text('北京站')), // 模拟数据
+                        DataCell(Text('公司名称')), // 模拟数据
+                        DataCell(Text('品牌')), // 模拟数据
+                        DataCell(Text('单品编码')), // 模拟数据
+                        DataCell(Text('国铁名称')), // 模拟数据
+                        DataCell(Text('国铁型号')), // 模拟数据
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.updatedAt.toString())),
+                        DataCell(Text(order.createdAt.toString())),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                // 打印合格证功能
+                              },
+                              child: const Text('打印合格证'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 商城订单待发货
+class MallOrdersPendingDeliveryScreen extends ConsumerWidget {
+  const MallOrdersPendingDeliveryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+// 集货商订单标签页
+class CollectorOrdersScreen extends ConsumerWidget {
+  const CollectorOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          // 三级标签页：集货商订单下的子分类
+          Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TabBar(
+              isScrollable: true,
+              labelColor: const Color(0xFF003366),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF003366),
+              indicatorWeight: 2,
+              tabs: const [
+                Tab(text: '集货商订单总表'),
+                Tab(text: '导入信息'),
+                Tab(text: '待发货'),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                CollectorOrdersTotalScreen(),
+                CollectorOrdersImportScreen(),
+                CollectorOrdersPendingDeliveryScreen(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 集货商订单总表
+class CollectorOrdersTotalScreen extends ConsumerStatefulWidget {
+  const CollectorOrdersTotalScreen({super.key});
+
+  @override
+  ConsumerState<CollectorOrdersTotalScreen> createState() => _CollectorOrdersTotalScreenState();
+}
+
+class _CollectorOrdersTotalScreenState extends ConsumerState<CollectorOrdersTotalScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('品牌')),
+                      const DataColumn(label: Text('单品编码')),
+                      const DataColumn(label: Text('国铁名称')),
+                      const DataColumn(label: Text('国铁型号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('国铁单价')),
+                      const DataColumn(label: Text('国铁金额')),
+                      const DataColumn(label: Text('结算金额')),
+                      const DataColumn(label: Text('发票申请时间')),
+                      const DataColumn(label: Text('回款时间')),
+                      const DataColumn(label: Text('付款时间')),
+                      const DataColumn(label: Text('供应商')),
+                      const DataColumn(label: Text('实发名称')),
+                      const DataColumn(label: Text('实发型号')),
+                      const DataColumn(label: Text('采购单价')),
+                      const DataColumn(label: Text('实发数量')),
+                      const DataColumn(label: Text('单位')),
+                      const DataColumn(label: Text('采购金额')),
+                      const DataColumn(label: Text('备注')),
+                      const DataColumn(label: Text('付款方式')),
+                      const DataColumn(label: Text('发票类型')),
+                      const DataColumn(label: Text('进项发票时间')),
+                      const DataColumn(label: Text('运费')),
+                      const DataColumn(label: Text('补发货类型')),
+                      const DataColumn(label: Text('补发货名称')),
+                      const DataColumn(label: Text('补发货金额')),
+                      const DataColumn(label: Text('办理费用')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      final firstItem = order.orderItems.isNotEmpty ? order.orderItems.first : null;
+                      
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        const DataCell(Text('admin')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        const DataCell(Text('收货人')),
+                        const DataCell(Text('13800138000')),
+                        const DataCell(Text('收货地址')),
+                        const DataCell(Text('北京铁路局')),
+                        const DataCell(Text('北京站')),
+                        const DataCell(Text('公司名称')),
+                        DataCell(Text(firstItem?.productName ?? '')),
+                        DataCell(Text(firstItem?.productSku ?? '')),
+                        DataCell(Text(firstItem?.productName ?? '')),
+                        DataCell(Text(firstItem?.productSku ?? '')),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        const DataCell(Text('结算金额')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('供应商')),
+                        const DataCell(Text('实发名称')),
+                        const DataCell(Text('实发型号')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('件')),
+                        const DataCell(Text('')),
+                        DataCell(Text(order.notes ?? '')),
+                        DataCell(Text(order.paymentMethod ?? '')),
+                        const DataCell(Text('增值税专用发票')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 集货商订单导入信息
+class CollectorOrdersImportScreen extends ConsumerStatefulWidget {
+  const CollectorOrdersImportScreen({super.key});
+
+  @override
+  ConsumerState<CollectorOrdersImportScreen> createState() => _CollectorOrdersImportScreenState();
+}
+
+class _CollectorOrdersImportScreenState extends ConsumerState<CollectorOrdersImportScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('品牌')),
+                      const DataColumn(label: Text('单品编码')),
+                      const DataColumn(label: Text('国铁名称')),
+                      const DataColumn(label: Text('国铁型号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('国铁单价')),
+                      const DataColumn(label: Text('国铁金额')),
+                      const DataColumn(label: Text('操作时间')),
+                      const DataColumn(label: Text('导入时间')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        const DataCell(Text('admin')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        const DataCell(Text('收货人')),
+                        const DataCell(Text('13800138000')),
+                        const DataCell(Text('收货地址')),
+                        const DataCell(Text('北京铁路局')),
+                        const DataCell(Text('北京站')),
+                        const DataCell(Text('公司名称')),
+                        const DataCell(Text('品牌')),
+                        const DataCell(Text('单品编码')),
+                        const DataCell(Text('国铁名称')),
+                        const DataCell(Text('国铁型号')),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.updatedAt.toString())),
+                        DataCell(Text(order.createdAt.toString())),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                // 打印合格证功能
+                              },
+                              child: const Text('打印合格证'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 集货商订单待发货
+class CollectorOrdersPendingDeliveryScreen extends ConsumerStatefulWidget {
+  const CollectorOrdersPendingDeliveryScreen({super.key});
+
+  @override
+  ConsumerState<CollectorOrdersPendingDeliveryScreen> createState() => _CollectorOrdersPendingDeliveryScreenState();
+}
+
+class _CollectorOrdersPendingDeliveryScreenState extends ConsumerState<CollectorOrdersPendingDeliveryScreen> {
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+  final ExcelService _excelService = ExcelService();
+  final List<String> _salesmen = ['admin', '张三', '李四', '王五', '赵六'];
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _changeSalesman(Order order) {
+    showDialog(
+      context: context,
+      builder: (context) => ChangeSalesmanDialog(
+        salesmen: _salesmen,
+        currentSalesman: 'admin', // 实际应从订单数据获取
+        onConfirm: (newSalesman) {
+          // 更新业务员
+          setState(() {
+            // 实际项目中应该调用API更新
+          });
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已将业务员修改为 $newSalesman'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _deleteOrder(Order order) {
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: 1,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).deleteOrder(order.id);
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('订单删除成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _selectedOrderIds.isEmpty ? null : () {
+                      // 批量发货功能
+                      // 实际项目中应该跳转到发货页面
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('已选择 ${_selectedOrderIds.length} 条订单进行发货'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.shopping_cart_checkout),
+                    label: const Text('批量发货'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _selectedOrderIds.isEmpty ? null : () {
+                      // 批量删除功能
+                      showDialog(
+                        context: context,
+                        builder: (context) => OrderDeleteDialog(
+                          count: _selectedOrderIds.length,
+                          onConfirm: () async {
+                            await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+                            setState(() {
+                              _selectedOrderIds.clear();
+                            });
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('删除成功'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          },
+                          onCancel: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                // 只显示待发货状态的订单
+                final pendingOrders = orders.where((order) => 
+                  order.status == 'PENDING' || 
+                  order.status == 'APPROVED' || 
+                  order.status == 'PROCESSING'
+                ).toList();
+                
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == pendingOrders.length && pendingOrders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(pendingOrders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('状态')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('匹配数量')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('物流公司')),
+                      const DataColumn(label: Text('物流单号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('匹配时间')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: pendingOrders.map((order) {
+                      final firstItem = order.orderItems.isNotEmpty ? order.orderItems.first : null;
+                      
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        DataCell(Text('admin')),
+                        DataCell(Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: order.status == 'PENDING' ? Colors.yellow.shade100 : 
+                                   order.status == 'APPROVED' ? Colors.green.shade100 : 
+                                   order.status == 'PROCESSING' ? Colors.blue.shade100 : 
+                                   Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(order.statusText),
+                        )),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        const DataCell(Text('收货人')),
+                        const DataCell(Text('13800138000')),
+                        DataCell(Text(order.shippingAddress ?? '')),
+                        const DataCell(Text('北京铁路局')),
+                        const DataCell(Text('北京站')),
+                        const DataCell(Text('公司名称')),
+                        const DataCell(Text('物流公司')),
+                        DataCell(Text(order.trackingNumber ?? '')),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDeliveryScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('发货'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _changeSalesman(order);
+                              },
+                              child: const Text('修改业务员'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderEditScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('编辑'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _deleteOrder(order);
+                              },
+                              child: const Text('删除'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red,
+                              ),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 其它订单总表
+// 补发货（退换货）
+class SupplementOrdersScreen extends ConsumerStatefulWidget {
+  const SupplementOrdersScreen({super.key});
+
+  @override
+  ConsumerState<SupplementOrdersScreen> createState() => _SupplementOrdersScreenState();
+}
+
+class _SupplementOrdersScreenState extends ConsumerState<SupplementOrdersScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  void _viewOrder(Order order, BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+      ),
+    );
+  }
+
+  void _deleteOrder(Order order, WidgetRef ref, BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: 1,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).deleteOrder(order.id);
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('订单删除成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _editOrder(Order order, BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderEditScreen(orderId: order.id),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // 新增功能
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('新增'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // 导入功能
+                    },
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('订单编号')),
+                      DataColumn(label: Text('订单日期')),
+                      DataColumn(label: Text('客户名称')),
+                      DataColumn(label: Text('联系人')),
+                      DataColumn(label: Text('联系电话')),
+                      DataColumn(label: Text('销售金额')),
+                      DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      return DataRow(cells: [
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.createdAt.toString())),
+                        DataCell(Text('客户名称')),
+                        DataCell(Text('联系人')),
+                        DataCell(Text('13800138000')),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => _viewOrder(order, context),
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () => _editOrder(order, context),
+                              child: const Text('编辑'),
+                            ),
+                            TextButton(
+                              onPressed: () => _deleteOrder(order, ref, context),
+                              child: const Text('删除'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 办理
+class HandleOrdersScreen extends ConsumerWidget {
+  const HandleOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  // 办理功能
+                },
+                icon: const Icon(Icons.check),
+                label: const Text('办理'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF003366),
+                ),
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text('订单编号')),
+                DataColumn(label: Text('订单日期')),
+                DataColumn(label: Text('客户名称')),
+                DataColumn(label: Text('联系人')),
+                DataColumn(label: Text('联系电话')),
+                DataColumn(label: Text('销售金额')),
+                DataColumn(label: Text('操作')),
+              ],
+              rows: [],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 对外业务订单总表
+class ExternalOrdersScreen extends ConsumerWidget {
+  const ExternalOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          // 二级标签页：对外业务订单下的子分类
+          Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TabBar(
+              isScrollable: true,
+              labelColor: const Color(0xFF003366),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF003366),
+              indicatorWeight: 2,
+              tabs: const [
+                Tab(text: '对外业务订单总表'),
+                Tab(text: '导入信息'),
+                Tab(text: '待发货'),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                ExternalOrdersTotalScreen(),
+                ExternalOrdersImportScreen(),
+                ExternalOrdersPendingDeliveryScreen(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 对外业务订单总表
+class ExternalOrdersTotalScreen extends ConsumerStatefulWidget {
+  const ExternalOrdersTotalScreen({super.key});
+
+  @override
+  ConsumerState<ExternalOrdersTotalScreen> createState() => _ExternalOrdersTotalScreenState();
+}
+
+class _ExternalOrdersTotalScreenState extends ConsumerState<ExternalOrdersTotalScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _addOrder() {
+    // 新增订单功能
+    // 这里可以导航到订单新增页面
+  }
+
+  void _deliveryOrder(Order order) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderDeliveryScreen(orderId: order.id),
+      ),
+    );
+  }
+
+  void _viewOrder(Order order) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _addOrder,
+                    icon: const Icon(Icons.add),
+                    label: const Text('新增'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('订单日期')),
+                      const DataColumn(label: Text('客户名称')),
+                      const DataColumn(label: Text('联系人')),
+                      const DataColumn(label: Text('联系电话')),
+                      const DataColumn(label: Text('销售金额')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.createdAt.toString())),
+                        DataCell(Text('客户名称')),
+                        DataCell(Text('联系人')),
+                        DataCell(Text('13800138000')),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => _viewOrder(order),
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () => _deliveryOrder(order),
+                              child: const Text('发货'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 对外业务订单导入信息
+class ExternalOrdersImportScreen extends ConsumerWidget {
+  const ExternalOrdersImportScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const Center(
+      child: Text('对外业务订单导入信息'),
+    );
+  }
+}
+
+// 对外业务订单待发货
+class ExternalOrdersPendingDeliveryScreen extends ConsumerWidget {
+  const ExternalOrdersPendingDeliveryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const Center(
+      child: Text('对外业务订单待发货'),
+    );
+  }
+}
+
+// 其它订单
+class OtherOrdersScreen extends ConsumerWidget {
+  const OtherOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          // 三级标签页：其它订单下的子分类
+          Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TabBar(
+              isScrollable: true,
+              labelColor: const Color(0xFF003366),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF003366),
+              indicatorWeight: 2,
+              tabs: const [
+                Tab(text: '其它订单总表'),
+                Tab(text: '导入信息'),
+                Tab(text: '待发货'),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                Center(child: Text('其它订单总表')),
+                Center(child: Text('导入信息')),
+                Center(child: Text('待发货')),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 补发货总表
+class SupplementOrdersTotalScreen extends ConsumerStatefulWidget {
+  const SupplementOrdersTotalScreen({super.key});
+
+  @override
+  ConsumerState<SupplementOrdersTotalScreen> createState() => _SupplementOrdersTotalScreenState();
+}
+
+class _SupplementOrdersTotalScreenState extends ConsumerState<SupplementOrdersTotalScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('删除成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('品牌')),
+                      const DataColumn(label: Text('单品编码')),
+                      const DataColumn(label: Text('国铁名称')),
+                      const DataColumn(label: Text('国铁型号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('国铁单价')),
+                      const DataColumn(label: Text('国铁金额')),
+                      const DataColumn(label: Text('结算金额')),
+                      const DataColumn(label: Text('发票申请时间')),
+                      const DataColumn(label: Text('回款时间')),
+                      const DataColumn(label: Text('付款时间')),
+                      const DataColumn(label: Text('供应商')),
+                      const DataColumn(label: Text('实发名称')),
+                      const DataColumn(label: Text('实发型号')),
+                      const DataColumn(label: Text('采购单价')),
+                      const DataColumn(label: Text('实发数量')),
+                      const DataColumn(label: Text('单位')),
+                      const DataColumn(label: Text('采购金额')),
+                      const DataColumn(label: Text('备注')),
+                      const DataColumn(label: Text('付款方式')),
+                      const DataColumn(label: Text('发票类型')),
+                      const DataColumn(label: Text('进项发票时间')),
+                      const DataColumn(label: Text('运费')),
+                      const DataColumn(label: Text('补发货类型')),
+                      const DataColumn(label: Text('补发货名称')),
+                      const DataColumn(label: Text('补发货金额')),
+                      const DataColumn(label: Text('办理费用')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      final firstItem = order.orderItems.isNotEmpty ? order.orderItems.first : null;
+                       
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        const DataCell(Text('admin')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        const DataCell(Text('收货人')),
+                        const DataCell(Text('13800138000')),
+                        const DataCell(Text('收货地址')),
+                        const DataCell(Text('北京铁路局')),
+                        const DataCell(Text('北京站')),
+                        const DataCell(Text('公司名称')),
+                        DataCell(Text(firstItem?.productName ?? '')),
+                        DataCell(Text(firstItem?.productSku ?? '')),
+                        DataCell(Text(firstItem?.productName ?? '')),
+                        DataCell(Text(firstItem?.productSku ?? '')),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        const DataCell(Text('结算金额')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('供应商')),
+                        const DataCell(Text('实发名称')),
+                        const DataCell(Text('实发型号')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('件')),
+                        const DataCell(Text('')),
+                        DataCell(Text(order.notes ?? '')),
+                        DataCell(Text(order.paymentMethod ?? '')),
+                        const DataCell(Text('增值税专用发票')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('补发货类型')),
+                        const DataCell(Text('补发货名称')),
+                        const DataCell(Text('补发货金额')),
+                        const DataCell(Text('办理费用')),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 补发货导入信息
+class SupplementOrdersImportScreen extends ConsumerWidget {
+  const SupplementOrdersImportScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const Center(
+      child: Text('补发货导入信息'),
+    );
+  }
+}
+
+// 补发货待发货
+class SupplementOrdersPendingDeliveryScreen extends ConsumerWidget {
+  const SupplementOrdersPendingDeliveryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const Center(
+      child: Text('补发货待发货'),
+    );
+  }
+}
+
+
+
+// 对外业务订单总表
+class ExternalOrdersScreen extends ConsumerWidget {
+  const ExternalOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          // 二级标签页：对外业务订单下的子分类
+          Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TabBar(
+              isScrollable: true,
+              labelColor: const Color(0xFF003366),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF003366),
+              indicatorWeight: 2,
+              tabs: const [
+                Tab(text: '对外业务订单总表'),
+                Tab(text: '导入信息'),
+                Tab(text: '待发货'),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                ExternalOrdersTotalScreen(),
+                ExternalOrdersImportScreen(),
+                ExternalOrdersPendingDeliveryScreen(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 对外业务订单总表
+class ExternalOrdersTotalScreen extends ConsumerStatefulWidget {
+  const ExternalOrdersTotalScreen({super.key});
+
+  @override
+  ConsumerState<ExternalOrdersTotalScreen> createState() => _ExternalOrdersTotalScreenState();
+}
+
+class _ExternalOrdersTotalScreenState extends ConsumerState<ExternalOrdersTotalScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('删除成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('品牌')),
+                      const DataColumn(label: Text('单品编码')),
+                      const DataColumn(label: Text('国铁名称')),
+                      const DataColumn(label: Text('国铁型号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('国铁单价')),
+                      const DataColumn(label: Text('国铁金额')),
+                      const DataColumn(label: Text('结算金额')),
+                      const DataColumn(label: Text('发票申请时间')),
+                      const DataColumn(label: Text('回款时间')),
+                      const DataColumn(label: Text('付款时间')),
+                      const DataColumn(label: Text('供应商')),
+                      const DataColumn(label: Text('实发名称')),
+                      const DataColumn(label: Text('实发型号')),
+                      const DataColumn(label: Text('采购单价')),
+                      const DataColumn(label: Text('实发数量')),
+                      const DataColumn(label: Text('单位')),
+                      const DataColumn(label: Text('采购金额')),
+                      const DataColumn(label: Text('备注')),
+                      const DataColumn(label: Text('付款方式')),
+                      const DataColumn(label: Text('发票类型')),
+                      const DataColumn(label: Text('进项发票时间')),
+                      const DataColumn(label: Text('运费')),
+                      const DataColumn(label: Text('补发货类型')),
+                      const DataColumn(label: Text('补发货名称')),
+                      const DataColumn(label: Text('补发货金额')),
+                      const DataColumn(label: Text('办理费用')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      final firstItem = order.orderItems.isNotEmpty ? order.orderItems.first : null;
+                       
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        const DataCell(Text('admin')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        const DataCell(Text('收货人')),
+                        const DataCell(Text('13800138000')),
+                        const DataCell(Text('收货地址')),
+                        const DataCell(Text('北京铁路局')),
+                        const DataCell(Text('北京站')),
+                        const DataCell(Text('公司名称')),
+                        DataCell(Text(firstItem?.productName ?? '')),
+                        DataCell(Text(firstItem?.productSku ?? '')),
+                        DataCell(Text(firstItem?.productName ?? '')),
+                        DataCell(Text(firstItem?.productSku ?? '')),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        const DataCell(Text('结算金额')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('供应商')),
+                        const DataCell(Text('实发名称')),
+                        const DataCell(Text('实发型号')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('件')),
+                        const DataCell(Text('')),
+                        DataCell(Text(order.notes ?? '')),
+                        DataCell(Text(order.paymentMethod ?? '')),
+                        const DataCell(Text('增值税专用发票')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('补发货类型')),
+                        const DataCell(Text('补发货名称')),
+                        const DataCell(Text('补发货金额')),
+                        const DataCell(Text('办理费用')),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 对外业务订单导入信息
+class ExternalOrdersImportScreen extends ConsumerWidget {
+  const ExternalOrdersImportScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const Center(
+      child: Text('对外业务订单导入信息'),
+    );
+  }
+}
+
+// 对外业务订单待发货
+class ExternalOrdersPendingDeliveryScreen extends ConsumerWidget {
+  const ExternalOrdersPendingDeliveryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const Center(
+      child: Text('对外业务订单待发货'),
+    );
+  }
+}
+                              },
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderEditScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('编辑'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDeliveryScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('发货'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                // 上传发货单功能
+                              },
+                              child: const Text('上传发货单'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _deleteOrder(order);
+                              },
+                              child: const Text('删除'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 其它订单标签页
+class OtherOrdersScreen extends ConsumerWidget {
+  const OtherOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          // 三级标签页：其它订单下的子分类
+          Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TabBar(
+              isScrollable: true,
+              labelColor: const Color(0xFF003366),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF003366),
+              indicatorWeight: 2,
+              tabs: const [
+                Tab(text: '其它订单总表'),
+                Tab(text: '导入信息'),
+                Tab(text: '待发货'),
+              ],
+            ),
+          ),
+          const Expanded(
+            child: TabBarView(
+              children: [
+                OtherOrdersTotalScreen(),
+                OtherOrdersImportScreen(),
+                OtherOrdersPendingDeliveryScreen(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 其它订单总表
+class OtherOrdersTotalScreen extends ConsumerStatefulWidget {
+  const OtherOrdersTotalScreen({super.key});
+
+  @override
+  ConsumerState<OtherOrdersTotalScreen> createState() => _OtherOrdersTotalScreenState();
+}
+
+class _OtherOrdersTotalScreenState extends ConsumerState<OtherOrdersTotalScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('订单类型')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('品牌')),
+                      const DataColumn(label: Text('单品编码')),
+                      const DataColumn(label: Text('国铁名称')),
+                      const DataColumn(label: Text('国铁型号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('国铁单价')),
+                      const DataColumn(label: Text('国铁金额')),
+                      const DataColumn(label: Text('发票申请时间')),
+                      const DataColumn(label: Text('回款时间')),
+                      const DataColumn(label: Text('付款时间')),
+                      const DataColumn(label: Text('供应商')),
+                      const DataColumn(label: Text('实发名称')),
+                      const DataColumn(label: Text('实发型号')),
+                      const DataColumn(label: Text('采购单价')),
+                      const DataColumn(label: Text('实发数量')),
+                      const DataColumn(label: Text('单位')),
+                      const DataColumn(label: Text('采购金额')),
+                      const DataColumn(label: Text('备注')),
+                      const DataColumn(label: Text('付款方式')),
+                      const DataColumn(label: Text('发票类型')),
+                      const DataColumn(label: Text('进项发票时间')),
+                      const DataColumn(label: Text('运费')),
+                      const DataColumn(label: Text('补发货类型')),
+                      const DataColumn(label: Text('补发货名称')),
+                      const DataColumn(label: Text('补发货金额')),
+                      const DataColumn(label: Text('办理费用')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      final firstItem = order.orderItems.isNotEmpty ? order.orderItems.first : null;
+                      
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        const DataCell(Text('admin')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text('其它订单')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        const DataCell(Text('收货人')),
+                        const DataCell(Text('13800138000')),
+                        const DataCell(Text('收货地址')),
+                        const DataCell(Text('北京铁路局')),
+                        const DataCell(Text('北京站')),
+                        const DataCell(Text('公司名称')),
+                        DataCell(Text(firstItem?.productName ?? '')),
+                        DataCell(Text(firstItem?.productSku ?? '')),
+                        DataCell(Text(firstItem?.productName ?? '')),
+                        DataCell(Text(firstItem?.productSku ?? '')),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('供应商')),
+                        const DataCell(Text('实发名称')),
+                        const DataCell(Text('实发型号')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('件')),
+                        const DataCell(Text('')),
+                        DataCell(Text(order.notes ?? '')),
+                        DataCell(Text(order.paymentMethod ?? '')),
+                        const DataCell(Text('增值税专用发票')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        const DataCell(Text('')),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 其它订单导入信息
+class OtherOrdersImportScreen extends ConsumerStatefulWidget {
+  const OtherOrdersImportScreen({super.key});
+
+  @override
+  ConsumerState<OtherOrdersImportScreen> createState() => _OtherOrdersImportScreenState();
+}
+
+class _OtherOrdersImportScreenState extends ConsumerState<OtherOrdersImportScreen> {
+  final ExcelService _excelService = ExcelService();
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  void _toggleOrderSelection(int orderId) {
+    setState(() {
+      if (_selectedOrderIds.contains(orderId)) {
+        _selectedOrderIds.remove(orderId);
+      } else {
+        _selectedOrderIds.add(orderId);
+      }
+    });
+  }
+
+  void _selectAllOrders(List<Order> orders) {
+    setState(() {
+      if (_selectedOrderIds.length == orders.length) {
+        _selectedOrderIds.clear();
+      } else {
+        _selectedOrderIds.clear();
+        _selectedOrderIds.addAll(orders.map((order) => order.id));
+      }
+    });
+  }
+
+  void _importOrders() async {
+    try {
+      // 生成并下载Excel模板
+      await _excelService.downloadOrderTemplate();
+      
+      // 导入Excel文件
+      final importedOrders = await _excelService.importOrdersFromExcel();
+      
+      // 显示导入结果
+      if (importedOrders.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importedOrders.length} 条订单'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // 刷新订单列表
+        ref.read(ordersProvider.notifier).refresh();
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('导入失败: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteOrders() {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请先选择要删除的订单'),
+          backgroundColor: Colors.yellow,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: _selectedOrderIds.length,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).batchDeleteOrders(_selectedOrderIds.toList());
+          setState(() {
+            _selectedOrderIds.clear();
+          });
+          Navigator.pop(context);
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _importOrders,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: _deleteOrders,
+                    icon: const Icon(Icons.delete),
+                    label: Text('删除(${_selectedOrderIds.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Checkbox(
+                          value: _selectedOrderIds.length == orders.length && orders.isNotEmpty,
+                          onChanged: (bool? value) {
+                            _selectAllOrders(orders);
+                          },
+                        ),
+                      ),
+                      const DataColumn(label: Text('业务员')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('订单类型')),
+                      const DataColumn(label: Text('订单编号')),
+                      const DataColumn(label: Text('提交日期')),
+                      const DataColumn(label: Text('审批日期')),
+                      const DataColumn(label: Text('收货人姓名')),
+                      const DataColumn(label: Text('收货人电话')),
+                      const DataColumn(label: Text('收货地址')),
+                      const DataColumn(label: Text('所属路局')),
+                      const DataColumn(label: Text('站段')),
+                      const DataColumn(label: Text('公司名称')),
+                      const DataColumn(label: Text('品牌')),
+                      const DataColumn(label: Text('单品编码')),
+                      const DataColumn(label: Text('国铁名称')),
+                      const DataColumn(label: Text('国铁型号')),
+                      const DataColumn(label: Text('下单数量')),
+                      const DataColumn(label: Text('国铁单价')),
+                      const DataColumn(label: Text('国铁金额')),
+                      const DataColumn(label: Text('操作时间')),
+                      const DataColumn(label: Text('导入时间')),
+                      const DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      return DataRow(cells: [
+                        DataCell(Checkbox(
+                          value: _selectedOrderIds.contains(order.id),
+                          onChanged: (bool? value) {
+                            _toggleOrderSelection(order.id);
+                          },
+                        )),
+                        const DataCell(Text('admin')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text('其它订单')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        const DataCell(Text('收货人')),
+                        const DataCell(Text('13800138000')),
+                        const DataCell(Text('收货地址')),
+                        const DataCell(Text('北京铁路局')),
+                        const DataCell(Text('北京站')),
+                        const DataCell(Text('公司名称')),
+                        const DataCell(Text('品牌')),
+                        const DataCell(Text('单品编码')),
+                        const DataCell(Text('国铁名称')),
+                        const DataCell(Text('国铁型号')),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                // 打印合格证功能
+                              },
+                              child: const Text('打印合格证'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 其它订单待发货
+class OtherOrdersPendingDeliveryScreen extends ConsumerStatefulWidget {
+  const OtherOrdersPendingDeliveryScreen({super.key});
+
+  @override
+  ConsumerState<OtherOrdersPendingDeliveryScreen> createState() => _OtherOrdersPendingDeliveryScreenState();
+}
+
+class _OtherOrdersPendingDeliveryScreenState extends ConsumerState<OtherOrdersPendingDeliveryScreen> {
+  final Set<int> _selectedOrderIds = {};
+  final TextEditingController _searchController = TextEditingController();
+  final List<String> _salesmen = ['admin', '张三', '李四', '王五', '赵六'];
+
+  void _changeSalesman(Order order) {
+    showDialog(
+      context: context,
+      builder: (context) => ChangeSalesmanDialog(
+        salesmen: _salesmen,
+        currentSalesman: 'admin', // 实际应从订单数据获取
+        onConfirm: (newSalesman) {
+          // 更新业务员
+          setState(() {
+            // 实际项目中应该调用API更新
+          });
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已将业务员修改为 $newSalesman'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _deleteOrder(Order order) {
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: 1,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).deleteOrder(order.id);
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('订单删除成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ordersAsync = ref.watch(ordersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ordersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('业务员')),
+                      DataColumn(label: Text('状态')),
+                      DataColumn(label: Text('订单类型')),
+                      DataColumn(label: Text('订单编号')),
+                      DataColumn(label: Text('下单数量')),
+                      DataColumn(label: Text('匹配数量')),
+                      DataColumn(label: Text('收货人姓名')),
+                      DataColumn(label: Text('收货人电话')),
+                      DataColumn(label: Text('收货地址')),
+                      DataColumn(label: Text('所属路局')),
+                      DataColumn(label: Text('站段')),
+                      DataColumn(label: Text('公司名称')),
+                      DataColumn(label: Text('物流公司')),
+                      DataColumn(label: Text('物流单号')),
+                      DataColumn(label: Text('提交日期')),
+                      DataColumn(label: Text('审批日期')),
+                      DataColumn(label: Text('匹配时间')),
+                      DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      return DataRow(cells: [
+                        const DataCell(Text('admin')),
+                        DataCell(Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: order.status == 'PENDING' ? Colors.yellow.shade100 : Colors.green.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(order.statusText),
+                        )),
+                        DataCell(Text('其它订单')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        const DataCell(Text('收货人')),
+                        const DataCell(Text('13800138000')),
+                        const DataCell(Text('收货地址')),
+                        const DataCell(Text('北京铁路局')),
+                        const DataCell(Text('北京站')),
+                        const DataCell(Text('公司名称')),
+                        const DataCell(Text('物流公司')),
+                        DataCell(Text(order.trackingNumber ?? '')),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        DataCell(Text(order.formattedUpdatedAt)),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                _changeSalesman(order);
+                              },
+                              child: const Text('修改业务员'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderEditScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('编辑'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => OrderDeliveryScreen(orderId: order.id),
+                                  ),
+                                );
+                              },
+                              child: const Text('发货'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _deleteOrder(order);
+                              },
+                              child: const Text('删除'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 补发货（退换货）标签页
+class SupplementOrdersScreen extends ConsumerStatefulWidget {
+  const SupplementOrdersScreen({super.key});
+
+  @override
+  ConsumerState<SupplementOrdersScreen> createState() => _SupplementOrdersScreenState();
+}
+
+class _SupplementOrdersScreenState extends ConsumerState<SupplementOrdersScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  void _viewOrder(Order order, BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderDetailPreviewScreen(orderId: order.id),
+      ),
+    );
+  }
+
+  void _deleteOrder(Order order, WidgetRef ref, BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => OrderDeleteDialog(
+        count: 1,
+        onConfirm: () async {
+          await ref.read(ordersProvider.notifier).deleteOrder(order.id);
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('订单删除成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _editOrder(Order order, BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderEditScreen(orderId: order.id),
+      ),
+    );
+  }
+
+  void _addSupplementOrder(BuildContext context) async {
+    // 弹出新页面，列出所有国铁导入信息中的订单
+    final selectedOrderIds = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SelectOrderScreen(),
+      ),
+    );
+
+    // 如果选择了订单，弹出新的页面，包含3个选项（补发货，补运费，其它）
+    if (selectedOrderIds != null && selectedOrderIds is List<int> && selectedOrderIds.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AddSupplementOrderScreen(selectedOrderIds: selectedOrderIds),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  _addSupplementOrder(context);
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('新增'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF003366),
+                ),
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                    ref.read(ordersProvider.notifier).searchOrders(value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ref.watch(ordersProvider).when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('业务员')),
+                      DataColumn(label: Text('状态')),
+                      DataColumn(label: Text('订单类型')),
+                      DataColumn(label: Text('订单编号')),
+                      DataColumn(label: Text('公司名称')),
+                      DataColumn(label: Text('所属路局')),
+                      DataColumn(label: Text('所属站段')),
+                      DataColumn(label: Text('收货人姓名')),
+                      DataColumn(label: Text('收货人电话')),
+                      DataColumn(label: Text('收货地址')),
+                      DataColumn(label: Text('备注')),
+                      DataColumn(label: Text('创建时间')),
+                      DataColumn(label: Text('操作')),
+                    ],
+                    rows: orders.map((order) {
+                      return DataRow(cells: [
+                        DataCell(Text('admin')),
+                        DataCell(Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: order.status == 'PENDING' ? Colors.yellow.shade100 : 
+                                  order.status == 'APPROVED' ? Colors.green.shade100 : 
+                                  order.status == 'REJECTED' ? Colors.red.shade100 : 
+                                  Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            order.status == 'PENDING' ? '待审核' : 
+                            order.status == 'APPROVED' ? '已通过' : 
+                            order.status == 'REJECTED' ? '审核驳回' : 
+                            order.statusText
+                          ),
+                        )),
+                        DataCell(Text('补发货')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text('公司名称')),
+                        DataCell(Text('北京铁路局')),
+                        DataCell(Text('北京站')),
+                        DataCell(Text('收货人')),
+                        DataCell(Text('13800138000')),
+                        DataCell(Text('收货地址')),
+                        DataCell(Text(order.notes ?? '')),
+                        DataCell(Text(order.formattedCreatedAt)),
+                        DataCell(Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                _viewOrder(order, context);
+                              },
+                              child: const Text('查看'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _editOrder(order, context);
+                              },
+                              child: const Text('编辑'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _deleteOrder(order, ref, context);
+                              },
+                              child: const Text('删除'),
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 办理标签页
+class HandleOrdersScreen extends ConsumerWidget {
+  const HandleOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  // 办理功能
+                },
+                icon: const Icon(Icons.check),
+                label: const Text('办理'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF003366),
+                ),
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: ref.watch(ordersProvider).when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              data: (orders) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('业务员')),
+                      DataColumn(label: Text('订单编号')),
+                      DataColumn(label: Text('品牌')),
+                      DataColumn(label: Text('站段')),
+                      DataColumn(label: Text('单品编码')),
+                      DataColumn(label: Text('国铁名称')),
+                      DataColumn(label: Text('国铁型号')),
+                      DataColumn(label: Text('单位')),
+                      DataColumn(label: Text('数量')),
+                      DataColumn(label: Text('单价')),
+                      DataColumn(label: Text('合计')),
+                      DataColumn(label: Text('利润')),
+                      DataColumn(label: Text('办理百分比')),
+                      DataColumn(label: Text('办理金额')),
+                      DataColumn(label: Text('时间')),
+                    ],
+                    rows: orders.map((order) {
+                      return DataRow(cells: [
+                        DataCell(Text('admin')),
+                        DataCell(Text(order.orderNumber)),
+                        DataCell(Text('品牌')),
+                        DataCell(Text('北京站')),
+                        DataCell(Text('单品编码')),
+                        DataCell(Text('国铁名称')),
+                        DataCell(Text('国铁型号')),
+                        DataCell(Text('件')),
+                        DataCell(Text(order.orderItems.length.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text('¥0.00')),
+                        DataCell(Text('100%')),
+                        DataCell(Text(order.totalAmount.toString())),
+                        DataCell(Text(order.createdAt.toString())),
+                      ]);
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ExternalOrdersScreen extends StatelessWidget {
+  const ExternalOrdersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 操作按钮
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // 新增功能
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('新增'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // 导入功能
+                    },
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('导入'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                    ),
+                  ),
+                ],
+              ),
+              // 搜索框
+              SizedBox(
+                width: 300,
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: '搜索订单...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // 搜索功能
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 表格
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('业务员')),
+                  DataColumn(label: Text('状态')),
+                  DataColumn(label: Text('客户公司名称')),
+                  DataColumn(label: Text('公司名称')),
+                  DataColumn(label: Text('物资名称')),
+                  DataColumn(label: Text('规格型号')),
+                  DataColumn(label: Text('单位')),
+                  DataColumn(label: Text('数量')),
+                  DataColumn(label: Text('金额')),
+                  DataColumn(label: Text('操作')),
+                ],
+                rows: List.generate(5, (index) {
+                  return DataRow(cells: [
+                    DataCell(Text('admin')),
+                    DataCell(Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.yellow.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('待处理'),
+                    )),
+                    DataCell(Text('客户公司$index')),
+                    DataCell(Text('公司名称')),
+                    DataCell(Text('物资名称$index')),
+                    DataCell(Text('规格型号$index')),
+                    DataCell(Text('件')),
+                    DataCell(Text('100')),
+                    DataCell(Text('¥1000.00')),
+                    DataCell(Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            // 查看功能
+                          },
+                          child: const Text('查看'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            // 发货功能
+                          },
+                          child: const Text('发货'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            // 删除功能
+                          },
+                          child: const Text('删除'),
+                        ),
+                      ],
+                    )),
+                  ]);
+                }),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

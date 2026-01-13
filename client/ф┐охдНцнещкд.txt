@@ -1,0 +1,67 @@
+# ERP+CRM系统后端修复步骤
+
+## 1. 修复pom.xml文件
+
+请手动修改 h:\erpcrm\server\pom.xml 文件，在lombok依赖之后添加以下内容：
+
+<!-- ModelMapper -->
+<dependency>
+    <groupId>org.modelmapper</groupId>
+    <artifactId>modelmapper</artifactId>
+    <version>3.2.0</version>
+</dependency>
+
+<!-- MyBatis Plus -->
+<dependency>
+    <groupId>com.baomidou</groupId>
+    <artifactId>mybatis-plus-boot-starter</artifactId>
+    <version>3.5.5</version>
+</dependency>
+
+<!-- MyBatis -->
+<dependency>
+    <groupId>org.mybatis</groupId>
+    <artifactId>mybatis</artifactId>
+    <version>3.5.16</version>
+</dependency>
+
+## 2. 修复LogisticsTrace.java文件
+
+请手动修改 h:\erpcrm\server\src\main\java\com\erpcrm\server\model\logistics\LogisticsTrace.java 文件：
+
+将：@Column(name = "logistics_id", nullable = false, index = true)
+修改为：@Column(name = "logistics_id", nullable = false)
+
+## 3. 编译和部署
+
+修复完成后，请按照以下步骤继续：
+
+1. 打开PowerShell，导航到h:\erpcrm\server目录
+2. 运行命令：mvn clean package -DskipTests
+3. 如果编译成功，导航到h:\erpcrm\client目录
+4. 运行命令：docker-compose -f docker-compose-simple.yml up -d
+
+## 4. 检查部署结果
+
+- 查看服务状态：docker-compose -f docker-compose-simple.yml ps
+- 查看日志：docker-compose -f docker-compose-simple.yml logs -f backend
+- 访问后端服务：http://localhost:8082/api
+
+## 5. 常见问题解决
+
+如果遇到Docker Desktop 500 Internal Server Error：
+- 重启Docker Desktop应用
+- 检查系统资源（内存、磁盘空间）
+- 重置Docker Desktop配置
+
+如果遇到Maven编译错误：
+- 检查依赖配置是否正确
+- 确保所有缺失的依赖都已添加
+- 检查代码中的语法错误
+
+## 6. 详细文档
+
+更多详细信息，请参考：
+- 后端编译修复指南.md
+- 后端部署指南.md
+- DockerDesktop安装指南.md

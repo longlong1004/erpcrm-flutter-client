@@ -1,0 +1,69 @@
+version: '3.8'
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# 本地开发环境配置
+services:
+  # MySQL数据库 - 使用Linux版本镜像
+  mysql:
+    image: mysql:8.0.33
+    container_name: erpcrm_mysql
+    restart: always
+    volumes:
+      - mysql_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=erpcrm
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis缓存 - 使用Linux版本镜像
+  redis:
+    image: redis:7.0.11
+    container_name: erpcrm_redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 后端服务 - 本地构建
+  # backend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.backend
+  #   container_name: erpcrm_backend
+  #   restart: always
+  #   networks:
+  #     - erpcrm_network
+  #   ports:
+  #     - "8080:8082"
+  #   environment:
+  #     - SPRING_PROFILES_ACTIVE=production
+  #     - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/erpcrm?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+  #     - SPRING_DATASOURCE_USERNAME=root
+  #     - SPRING_DATASOURCE_PASSWORD=password
+  #     - SPRING_REDIS_HOST=redis
+  #     - SPRING_REDIS_PORT=6379
+  #   depends_on:
+  #     - mysql
+  #     - redis
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8082/api/actuator/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3

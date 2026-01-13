@@ -1,0 +1,14 @@
+{
+  "include": ["lib/**/*"],
+  "exclude": [
+    "build/**/*",
+    ".idea/**/*",
+    ".vscode/**/*",
+    "windows/**/*",
+    "web/**/*",
+    "test/**/*",
+    "**/__pycache__/**/*",
+    "**/node_modules/**/*"
+  ],
+  "strict": false
+}

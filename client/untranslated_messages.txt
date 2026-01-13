@@ -1,0 +1,29 @@
+{
+  "en": [
+    "menuAddedSuccess",
+    "addTab",
+    "newTab",
+    "tabName",
+    "tabNameExample",
+    "routePath",
+    "routePathExample",
+    "warning",
+    "addRootMenu",
+    "addSubMenu",
+    "deleteMenu"
+  ],
+
+  "zh": [
+    "menuAddedSuccess",
+    "addTab",
+    "newTab",
+    "tabName",
+    "tabNameExample",
+    "routePath",
+    "routePathExample",
+    "warning",
+    "addRootMenu",
+    "addSubMenu",
+    "deleteMenu"
+  ]
+}

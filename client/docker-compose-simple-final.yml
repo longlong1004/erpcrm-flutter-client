@@ -1,0 +1,37 @@
+# 最终简化版配置 - 使用现有Java镜像
+
+networks:
+  erpcrm_network:
+    driver: nat
+
+volumes:
+  app_data:
+    driver: local
+
+# 简化的本地开发环境配置
+services:
+  # 后端服务 - 简化版
+  backend:
+    image: eclipse-temurin:17-alpine
+    container_name: erpcrm_backend
+    networks:
+      - erpcrm_network
+    ports:
+      - "8082:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - SPRING_DATASOURCE_URL=jdbc:sqlite:/app/data/erpcrm.db
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.sqlite.JDBC
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.community.dialects.SQLiteDialect
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_CACHE_TYPE=none
+    volumes:
+      - app_data:/app/data
+    restart: always
+    command: >
+      sh -c "
+      echo 'Creating data directory...'
+      mkdir -p /app/data
+      echo 'Starting application...'
+      java -jar /app/app.jar
+      "

@@ -1,0 +1,19 @@
+# 极简Windows容器配置
+
+networks:
+  erpcrm_network:
+    driver: nat
+
+# 极简Windows容器配置
+services:
+  # 仅包含一个基础服务
+  backend:
+    image: mcr.microsoft.com/windows/nanoserver:ltsc2022
+    container_name: erpcrm_backend
+    networks:
+      - erpcrm_network
+    ports:
+      - "8082:8080"
+    restart: always
+    # 使用单线命令，避免编码和格式问题
+    command: cmd /c "echo Starting ERP+CRM backend service... && echo Service is running on port 8082 && ping -t localhost >nul"

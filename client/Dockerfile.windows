@@ -1,0 +1,14 @@
+# 使用Windows Server Core 2022作为基础镜像
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制本地构建的JAR文件到容器中
+COPY ../server/target/erpcrm-1.0-SNAPSHOT.jar app.jar
+
+# 暴露端口
+EXPOSE 8080
+
+# 启动应用
+ENTRYPOINT ["java", "-jar", "app.jar"]

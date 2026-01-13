@@ -1,0 +1,35 @@
+version: '3.8'
+
+networks:
+  erpcrm_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# 简化的本地开发环境配置
+services:
+  # 后端服务 - 本地构建（不依赖外部数据库和Redis）
+  backend:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    container_name: erpcrm_backend
+    restart: always
+    networks:
+      - erpcrm_network
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - SPRING_DATASOURCE_URL=jdbc:sqlite:/app/data/erpcrm.db
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.sqlite.JDBC
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.community.dialects.SQLiteDialect
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      # 禁用Redis以避免连接错误
+      - SPRING_CACHE_TYPE=none
+    volumes:
+      - ./data:/app/data

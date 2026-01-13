@@ -1,0 +1,72 @@
+name: erpcrm_client
+description: ERP+CRM国铁商城系统客户端
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations: # 新增：用于支持本地化和中文显示
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  riverpod: ^2.4.0
+  flutter_riverpod: ^2.4.0
+  go_router: ^10.0.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  sqflite: ^2.3.0
+  dio: ^5.3.3
+  intl: ^0.19.0
+  logger: ^2.0.2
+  connectivity_plus: ^7.0.0
+  shared_preferences: ^2.2.2
+  json_annotation: ^4.9.0
+  riverpod_annotation: ^2.3.0
+  flutter_secure_storage: ^9.0.0
+  excel: ^2.1.0
+  file_picker: ^6.1.1
+  path_provider: ^2.1.2
+  open_filex: ^4.4.0
+  web_socket_channel: ^2.4.0
+  mime: ^1.0.4
+  http: ^1.2.0
+  # device_info_plus: ^10.0.0
+  # package_info_plus: ^8.0.2
+  process_run: ^0.13.0  # Windows系统调用
+  win32: 5.5.0        # Windows API调用
+  file_icon: ^1.0.0    # 文件图标获取
+  fl_chart: ^0.69.0    # 图表库（用于订单趋势、客户增长等图表）
+  image_picker: ^1.0.7  # 图片选择器（用于商品图片上传）
+  freezed_annotation: ^2.4.1  # Freezed注解（用于数据模型）
+
+  # 离线存储和同步
+  # 注意：项目已从drift/SQLite迁移到纯Hive实现，以下依赖已不再使用
+  # drift: ^2.12.0
+  # drift_sqflite: ^2.0.0
+  # sqlite3_flutter_libs: ^0.5.0 # Web平台不支持，已移除
+  # 图表库
+  # charts_flutter已停止维护，移除该依赖以解决与intl的版本冲突
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  hive_generator: ^2.0.0
+  build_runner: ^2.4.6
+  # drift_dev已不再使用，已移除
+  json_serializable: ^6.7.1
+  riverpod_generator: ^2.3.0
+  mockito: ^5.4.3
+  mocktail: ^1.0.0
+  freezed: ^2.4.5  # Freezed代码生成器
+
+flutter:
+  uses-material-design: true
+  generate: true
+  fonts:
+    - family: SimHei
+      fonts:
+        - asset: assets/fonts/simhei.ttf

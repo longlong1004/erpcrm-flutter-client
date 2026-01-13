@@ -1,0 +1,37 @@
+# 简化的本地开发环境配置 - Windows版本
+
+networks:
+  erpcrm_network:
+    driver: nat
+
+volumes:
+  app_data:
+    driver: local
+
+# 简化的本地开发环境配置
+x-app-common:
+  &app-common
+  environment:
+    - SPRING_PROFILES_ACTIVE=default
+    - SPRING_DATASOURCE_URL=jdbc:sqlite:C:/app/data/erpcrm.db
+    - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.sqlite.JDBC
+    - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.community.dialects.SQLiteDialect
+    - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    - SPRING_CACHE_TYPE=none
+  volumes:
+    - app_data:C:/app/data
+  restart: always
+
+# 本地开发环境配置
+services:
+  # 后端服务 - Windows版本
+  backend:
+    <<: *app-common
+    build:
+      context: .
+      dockerfile: Dockerfile.backend.windows
+    container_name: erpcrm_backend
+    networks:
+      - erpcrm_network
+    ports:
+      - "8082:8082"

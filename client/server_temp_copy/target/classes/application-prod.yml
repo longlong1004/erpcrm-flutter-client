@@ -1,0 +1,157 @@
+spring:
+  application:
+    name: erpcrm-server
+  
+  # 数据库配置
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/erpcrm_prod?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=Asia/Shanghai}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    
+  # JPA配置
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: false
+        cache:
+          use_second_level_cache: true
+          region.factory_class: org.hibernate.cache.jcache.JCacheRegionFactory
+      javax.persistence.sharedCache.mode: ENABLE_SELECTIVE
+        
+  # Redis配置
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+      database: 0
+      timeout: 10000ms
+      jedis:
+        pool:
+          max-active: 32
+          max-idle: 32
+          min-idle: 0
+          max-wait: -1ms
+
+  # Elasticsearch配置
+  elasticsearch:
+    uris: ${SPRING_DATA_ELASTICSEARCH_URIS:http://localhost:9200}
+    username: ${SPRING_ELASTICSEARCH_USERNAME:elastic}
+    password: ${SPRING_ELASTICSEARCH_PASSWORD:changeme}
+
+  # 国际化配置
+  messages:
+    basename: i18n/messages
+    encoding: UTF-8
+    cache-duration: 3600s
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 500MB
+
+# 服务器配置
+server:
+  port: ${SERVER_PORT:8443}
+  servlet:
+    context-path: /api
+    session:
+      cookie:
+        secure: true
+        http-only: true
+        same-site: strict
+  tomcat:
+    max-threads: 500
+    min-spare-threads: 50
+    connection-timeout: 20000
+    compression:
+      enabled: true
+      mime-types: text/html,text/xml,text/plain,text/css,application/json,application/xml,application/javascript
+      min-response-size: 2048
+  ssl:
+    enabled: ${SSL_ENABLED:true}
+    key-store: ${SSL_KEY_STORE:classpath:keystore.jks}
+    key-store-password: ${SSL_KEY_STORE_PASSWORD:changeit}
+    key-alias: ${SSL_KEY_ALIAS:tomcat}
+    key-store-type: ${SSL_KEY_STORE_TYPE:JKS}
+  forward-headers-strategy: native
+
+# 安全配置
+spring:
+  security:
+    csrf:
+      cookie:
+        secure: true
+        http-only: true
+        same-site: strict
+    headers:
+      x-frame-options: DENY
+      x-content-type-options: nosniff
+      x-xss-protection: "1; mode=block"
+      content-security-policy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:"
+      referrer-policy: strict-origin-when-cross-origin
+      feature-policy: "camera 'none'; microphone 'none'; geolocation 'none'; payment 'none';"
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:https://your-domain.com}
+      allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+      allowed-headers: "*"
+      allow-credentials: true
+      max-age: 3600
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:your-secret-key-here-change-in-production}
+  expiration: 43200000 # 12小时
+  refresh-token-expiration: 604800000 # 7天
+  issuer: erpcrm-server
+  audience: erpcrm-client
+
+# Swagger配置
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: false
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.erpcrm: WARN
+    org.springframework.security: WARN
+  file:
+    name: logs/erpcrm-server.log
+    max-size: 100MB
+    max-history: 30
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# 跨域配置
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:https://your-domain.com}
+  allowed-methods: GET, POST, PUT, DELETE, OPTIONS
+  allowed-headers: '*'
+  allow-credentials: true
+  max-age: 3600

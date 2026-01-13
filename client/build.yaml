@@ -1,0 +1,12 @@
+targets:
+  $default:
+    sources:
+      - lib/**
+      - pubspec.*
+      - analysis_options.*
+    builders:
+      hive_generator|hive_generator:
+        enabled: true
+        options:
+          generate_for:
+            - lib/models/**/*.dart
