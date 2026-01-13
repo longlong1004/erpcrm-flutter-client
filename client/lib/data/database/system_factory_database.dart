@@ -41,6 +41,15 @@ class SysUiConfig extends HiveObject {
   @HiveField(11)
   DateTime? updatedAt;
 
+  @HiveField(12)
+  String? status;
+
+  @HiveField(13)
+  String? createdBy;
+
+  @HiveField(14)
+  String? updatedBy;
+
   SysUiConfig({
     this.id,
     this.moduleCode,
@@ -54,6 +63,9 @@ class SysUiConfig extends HiveObject {
     this.displayOrder,
     this.createdAt,
     this.updatedAt,
+    this.status,
+    this.createdBy,
+    this.updatedBy,
   });
 
   SysUiConfig copyWith({
@@ -69,6 +81,9 @@ class SysUiConfig extends HiveObject {
     int? displayOrder,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? status,
+    String? createdBy,
+    String? updatedBy,
   }) {
     return SysUiConfig(
       id: id ?? this.id,
@@ -83,6 +98,9 @@ class SysUiConfig extends HiveObject {
       displayOrder: displayOrder ?? this.displayOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      status: status ?? this.status,
+      createdBy: createdBy ?? this.createdBy,
+      updatedBy: updatedBy ?? this.updatedBy,
     );
   }
 
@@ -155,6 +173,15 @@ class SysMenuConfig extends HiveObject {
   @HiveField(10)
   String? routePath;
 
+  @HiveField(11)
+  String? status;
+
+  @HiveField(12)
+  String? createdBy;
+
+  @HiveField(13)
+  String? updatedBy;
+
   @HiveField(8)
   DateTime? createdAt;
 
@@ -171,6 +198,9 @@ class SysMenuConfig extends HiveObject {
     this.displayOrder,
     this.visible,
     this.routePath,
+    this.status,
+    this.createdBy,
+    this.updatedBy,
     this.createdAt,
     this.updatedAt,
   });
@@ -185,6 +215,9 @@ class SysMenuConfig extends HiveObject {
     int? displayOrder,
     bool? visible,
     String? routePath,
+    String? status,
+    String? createdBy,
+    String? updatedBy,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -198,6 +231,9 @@ class SysMenuConfig extends HiveObject {
       displayOrder: displayOrder ?? this.displayOrder,
       visible: visible ?? this.visible,
       routePath: routePath ?? this.routePath,
+      status: status ?? this.status,
+      createdBy: createdBy ?? this.createdBy,
+      updatedBy: updatedBy ?? this.updatedBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -214,6 +250,9 @@ class SysMenuConfig extends HiveObject {
       'displayOrder': displayOrder,
       'visible': visible,
       'routePath': routePath,
+      'status': status,
+      'createdBy': createdBy,
+      'updatedBy': updatedBy,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -230,6 +269,9 @@ class SysMenuConfig extends HiveObject {
       displayOrder: json['displayOrder'] as int?,
       visible: json['visible'] as bool?,
       routePath: json['routePath'] as String?,
+      status: json['status'] as String?,
+      createdBy: json['createdBy'] as String?,
+      updatedBy: json['updatedBy'] as String?,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,
@@ -288,6 +330,19 @@ class SystemFactoryDao {
     await box.delete(id);
   }
 
+  /// 保存或更新UI配置
+  static Future<void> saveOrUpdateUiConfig(SysUiConfig config) async {
+    await saveUiConfig(config);
+  }
+
+  /// 批量保存UI配置
+  static Future<void> batchSaveUiConfigs(List<SysUiConfig> configs) async {
+    final box = await getUiConfigBox();
+    for (var config in configs) {
+      await box.put(config.id, config);
+    }
+  }
+
   /// 保存菜单配置
   static Future<void> saveMenuConfig(SysMenuConfig config) async {
     final box = await getMenuConfigBox();
@@ -313,6 +368,11 @@ class SystemFactoryDao {
   static Future<void> deleteMenuConfig(String id) async {
     final box = await getMenuConfigBox();
     await box.delete(id);
+  }
+
+  /// 保存或更新菜单配置
+  static Future<void> saveOrUpdateMenuConfig(SysMenuConfig config) async {
+    await saveMenuConfig(config);
   }
 
   /// 清空所有UI配置

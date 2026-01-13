@@ -1724,7 +1724,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                 final newField = SysUiConfig(
                   id: now, // 使用时间戳作为临时ID
                   moduleCode: moduleCode,
-                  moduleName: moduleName,
+                  menuCode: moduleName,
                   fieldCode: fieldCode,
                   fieldName: fieldName,
                   fieldType: fieldType,
@@ -1735,7 +1735,7 @@ class DynamicFieldConfigPage extends ConsumerWidget {
                   displayOrder: displayOrder,
                   status: 'DRAFT',
                   createdBy: 'admin',
-                  createdAt: now,
+                  createdAt: DateTime.fromMillisecondsSinceEpoch(now),
                   updatedBy: 'admin',
                   updatedAt: now,
                 );
@@ -2357,7 +2357,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
       displayOrder: 999,
       status: 'DRAFT',
       createdBy: 'admin',
-      createdAt: now,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(now),
       updatedBy: 'admin',
       updatedAt: now,
     );
@@ -2376,7 +2376,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
       displayOrder: 999,
       status: 'DRAFT',
       createdBy: 'admin',
-      createdAt: now,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(now),
       updatedBy: 'admin',
       updatedAt: now,
     );
@@ -2460,7 +2460,7 @@ class DynamicMenuConfigPage extends ConsumerWidget {
                   displayOrder: displayOrder,
                   status: 'DRAFT',
                   createdBy: 'admin',
-                  createdAt: now,
+                  createdAt: DateTime.fromMillisecondsSinceEpoch(now),
                   updatedBy: 'admin',
                   updatedAt: now,
                 );

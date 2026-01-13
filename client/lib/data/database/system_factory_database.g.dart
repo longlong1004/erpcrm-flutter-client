@@ -95,13 +95,16 @@ class SysMenuConfigAdapter extends TypeAdapter<SysMenuConfig> {
       createdAt: fields[8] as DateTime?,
       updatedAt: fields[9] as DateTime?,
       routePath: fields[10] as String?,
+      status: fields[11] as String?,
+      createdBy: fields[12] as String?,
+      updatedBy: fields[13] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, SysMenuConfig obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -123,7 +126,13 @@ class SysMenuConfigAdapter extends TypeAdapter<SysMenuConfig> {
       ..writeByte(9)
       ..write(obj.updatedAt)
       ..writeByte(10)
-      ..write(obj.routePath);
+      ..write(obj.routePath)
+      ..writeByte(11)
+      ..write(obj.status)
+      ..writeByte(12)
+      ..write(obj.createdBy)
+      ..writeByte(13)
+      ..write(obj.updatedBy);
   }
 
   @override
