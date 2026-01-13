@@ -34,7 +34,7 @@ class OrderTrendChart extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.onSurface,
+                color: AppTheme.textPrimaryColor,
               ),
             ),
             const SizedBox(height: 20),

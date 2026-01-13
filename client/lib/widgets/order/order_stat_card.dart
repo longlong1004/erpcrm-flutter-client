@@ -70,7 +70,7 @@ class OrderStatCard extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.onSurface,
+                  color: AppTheme.textPrimaryColor,
                 ),
               ),
               const SizedBox(height: 8),
